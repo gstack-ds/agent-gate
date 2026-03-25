@@ -11,6 +11,7 @@ from app.database import get_db
 from app.middleware.auth import UserDep, _hash_api_key
 from app.models.database import Agent
 from app.models.schemas import AgentCreate, AgentCreateResponse, AgentResponse, AgentUpdate
+from app.services import audit
 
 router = APIRouter()
 
@@ -63,6 +64,7 @@ async def create_agent(
         created_at=datetime.now(timezone.utc),
     )
     db.add(agent)
+    await audit.log_event(db, "agent_registered", agent_id=agent.id, user_id=user.id)
     await db.commit()
     await db.refresh(agent)
 
@@ -117,4 +119,5 @@ async def revoke_agent(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agent not found")
 
     agent.status = "revoked"
+    await audit.log_event(db, "agent_revoked", agent_id=agent.id, user_id=user.id)
     await db.commit()
