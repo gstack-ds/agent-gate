@@ -126,6 +126,19 @@ class DenyRequest(BaseModel):
     reason: Optional[str] = None
 
 
+# --- Rule template schemas ---
+
+class RuleTemplateRule(BaseModel):
+    rule_type: RuleType
+    value: dict[str, Any]
+
+
+class RuleTemplate(BaseModel):
+    name: str
+    description: str
+    rules: list[RuleTemplateRule]
+
+
 # --- Dashboard schemas ---
 
 class DashboardStats(BaseModel):

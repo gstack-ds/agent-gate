@@ -15,6 +15,8 @@ class Settings(BaseSettings):
     JWT_SECRET: str = "placeholder-secret"
     JWT_ALGORITHM: str = "HS256"
     APPROVAL_TOKEN_TTL_SECONDS: int = 3600
+    RATE_LIMIT_REQUESTS: int = 10
+    RATE_LIMIT_WINDOW_SECONDS: int = 60
     RESEND_API_KEY: str = ""
     DASHBOARD_URL: str = "https://app.agentgate.dev"
     ENVIRONMENT: str = "development"

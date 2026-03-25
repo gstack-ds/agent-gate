@@ -9,8 +9,39 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.middleware.auth import UserDep
 from app.models.database import Agent, Rule
-from app.models.schemas import RuleCreate, RuleResponse, RuleUpdate
+from app.models.schemas import RuleCreate, RuleResponse, RuleTemplate, RuleTemplateRule, RuleType, RuleUpdate
 from app.services import audit
+
+_TEMPLATES: list[RuleTemplate] = [
+    RuleTemplate(
+        name="Conservative",
+        description="Tight controls: requires approval for anything over $25, hard daily/monthly caps.",
+        rules=[
+            RuleTemplateRule(rule_type=RuleType.require_approval_above, value={"amount": 25.0}),
+            RuleTemplateRule(rule_type=RuleType.max_per_day, value={"amount": 100.0}),
+            RuleTemplateRule(rule_type=RuleType.max_per_month, value={"amount": 500.0}),
+        ],
+    ),
+    RuleTemplate(
+        name="Moderate",
+        description="Balanced: auto-approves small purchases, flags large ones, reasonable spend caps.",
+        rules=[
+            RuleTemplateRule(rule_type=RuleType.auto_approve_below, value={"amount": 50.0}),
+            RuleTemplateRule(rule_type=RuleType.require_approval_above, value={"amount": 200.0}),
+            RuleTemplateRule(rule_type=RuleType.max_per_day, value={"amount": 500.0}),
+            RuleTemplateRule(rule_type=RuleType.max_per_month, value={"amount": 2000.0}),
+        ],
+    ),
+    RuleTemplate(
+        name="Permissive",
+        description="Minimal friction: auto-approves most purchases, only blocks truly large spends.",
+        rules=[
+            RuleTemplateRule(rule_type=RuleType.auto_approve_below, value={"amount": 500.0}),
+            RuleTemplateRule(rule_type=RuleType.max_per_day, value={"amount": 2000.0}),
+            RuleTemplateRule(rule_type=RuleType.max_per_month, value={"amount": 10000.0}),
+        ],
+    ),
+]
 
 router = APIRouter()
 
@@ -35,6 +66,16 @@ async def _get_rule_for_user(rule_id: uuid.UUID, user_id: uuid.UUID, db: AsyncSe
     if rule is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Rule not found")
     return rule
+
+
+@router.get(
+    "/rule-templates",
+    response_model=list[RuleTemplate],
+    summary="List rule templates",
+    description="Returns preset rule configurations for Conservative, Moderate, and Permissive profiles.",
+)
+async def list_rule_templates(user: UserDep) -> list[RuleTemplate]:
+    return _TEMPLATES
 
 
 @router.get(

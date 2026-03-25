@@ -11,6 +11,7 @@ from app.middleware.auth import AgentDep
 from app.models.database import AuthorizationRequest, Rule, User
 from app.models.schemas import AuthorizeRequest, AuthorizeResponse
 from app.services import audit, notification, rule_engine, token_service
+from app.services.rate_limiter import authorize_limiter
 
 router = APIRouter()
 
@@ -34,6 +35,9 @@ async def create_authorization_request(
     db: AsyncSession = Depends(get_db),
     response: Response = None,
 ) -> AuthorizeResponse:
+    # Enforce per-agent rate limit
+    authorize_limiter.check(str(agent.id))
+
     # Load the agent's active rules
     rules_result = await db.execute(
         select(Rule).where(Rule.agent_id == agent.id, Rule.is_active.is_(True))

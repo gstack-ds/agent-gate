@@ -1,3 +1,6 @@
+import asyncio
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -7,8 +10,22 @@ from app.api.authorize import router as authorize_router
 from app.api.dashboard import router as dashboard_router
 from app.api.requests import router as requests_router
 from app.api.rules import router as rules_router
+from app.services import expiration
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    task = asyncio.create_task(expiration.run_expiration_loop())
+    yield
+    task.cancel()
+    try:
+        await task
+    except asyncio.CancelledError:
+        pass
+
 
 app = FastAPI(
+    lifespan=lifespan,
     title="AgentGate API",
     description=(
         "Human authorization gateway for AI agent transactions. "
