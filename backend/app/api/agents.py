@@ -1,11 +1,15 @@
+import secrets
 import uuid
+from datetime import datetime, timezone
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.middleware.auth import UserDep
+from app.middleware.auth import UserDep, _hash_api_key
+from app.models.database import Agent
 from app.models.schemas import AgentCreate, AgentCreateResponse, AgentResponse, AgentUpdate
 
 router = APIRouter()
@@ -20,7 +24,13 @@ async def list_agents(
     user: UserDep,
     db: AsyncSession = Depends(get_db),
 ) -> List[AgentResponse]:
-    raise HTTPException(status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="Not implemented")
+    result = await db.execute(
+        select(Agent)
+        .where(Agent.user_id == user.id)
+        .order_by(Agent.created_at.desc())
+    )
+    agents = result.scalars().all()
+    return [AgentResponse.model_validate(a) for a in agents]
 
 
 @router.post(
@@ -38,7 +48,26 @@ async def create_agent(
     user: UserDep,
     db: AsyncSession = Depends(get_db),
 ) -> AgentCreateResponse:
-    raise HTTPException(status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="Not implemented")
+    raw_key = f"sk-ag-{secrets.token_hex(32)}"
+    key_hash = _hash_api_key(raw_key)
+    key_prefix = raw_key[:16] + "..."
+
+    agent = Agent(
+        id=uuid.uuid4(),
+        user_id=user.id,
+        name=body.name,
+        api_key_hash=key_hash,
+        api_key_prefix=key_prefix,
+        status="active",
+        metadata_=body.metadata,
+        created_at=datetime.now(timezone.utc),
+    )
+    db.add(agent)
+    await db.commit()
+    await db.refresh(agent)
+
+    response = AgentResponse.model_validate(agent)
+    return AgentCreateResponse(**response.model_dump(), api_key=raw_key)
 
 
 @router.patch(
@@ -52,17 +81,40 @@ async def update_agent(
     user: UserDep,
     db: AsyncSession = Depends(get_db),
 ) -> AgentResponse:
-    raise HTTPException(status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="Not implemented")
+    result = await db.execute(
+        select(Agent).where(Agent.id == agent_id, Agent.user_id == user.id)
+    )
+    agent = result.scalar_one_or_none()
+    if agent is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agent not found")
+
+    if body.name is not None:
+        agent.name = body.name
+    if body.status is not None:
+        agent.status = body.status.value
+
+    await db.commit()
+    await db.refresh(agent)
+    return AgentResponse.model_validate(agent)
 
 
 @router.delete(
     "/agents/{agent_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Revoke an agent",
+    description="Sets the agent's status to 'revoked'. The record is preserved for audit history.",
 )
 async def revoke_agent(
     agent_id: uuid.UUID,
     user: UserDep,
     db: AsyncSession = Depends(get_db),
 ) -> None:
-    raise HTTPException(status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="Not implemented")
+    result = await db.execute(
+        select(Agent).where(Agent.id == agent_id, Agent.user_id == user.id)
+    )
+    agent = result.scalar_one_or_none()
+    if agent is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agent not found")
+
+    agent.status = "revoked"
+    await db.commit()
