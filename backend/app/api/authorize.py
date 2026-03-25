@@ -1,15 +1,16 @@
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Response, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.database import get_db
 from app.middleware.auth import AgentDep
-from app.models.database import AuthorizationRequest, Rule
+from app.models.database import AuthorizationRequest, Rule, User
 from app.models.schemas import AuthorizeRequest, AuthorizeResponse
-from app.services import rule_engine, token_service
+from app.services import audit, notification, rule_engine, token_service
 
 router = APIRouter()
 
@@ -29,6 +30,7 @@ _PENDING_EXPIRY_SECONDS = 300  # 5 minutes for human to respond
 async def create_authorization_request(
     body: AuthorizeRequest,
     agent: AgentDep,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     response: Response = None,
 ) -> AuthorizeResponse:
@@ -77,11 +79,39 @@ async def create_authorization_request(
         if response is not None:
             response.status_code = status.HTTP_202_ACCEPTED
 
+    await audit.log_event(db, "request_created", agent_id=agent.id, request_id=req.id)
+    if result.decision == "auto_approved":
+        await audit.log_event(db, "auto_approved", agent_id=agent.id, request_id=req.id)
+    elif result.decision == "denied":
+        await audit.log_event(
+            db,
+            "request_denied_by_rule",
+            agent_id=agent.id,
+            request_id=req.id,
+            details={"matched_rule_type": result.matched_rule_type},
+        )
+    else:
+        await audit.log_event(db, "request_pending", agent_id=agent.id, request_id=req.id)
+
     db.add(req)
     await db.commit()
     await db.refresh(req)
 
-    # TODO: notify human if pending (Phase 1 — Supabase Realtime + Resend)
+    if result.decision == "pending" and settings.RESEND_API_KEY:
+        user_row = (
+            await db.execute(select(User).where(User.id == agent.user_id))
+        ).scalar_one_or_none()
+        if user_row:
+            background_tasks.add_task(
+                notification.send_pending_notification,
+                user_email=user_row.email,
+                agent_name=agent.name,
+                request_id=str(req.id),
+                action=body.action,
+                amount=body.amount,
+                vendor=body.vendor,
+                description=body.description,
+            )
 
     return AuthorizeResponse.model_validate(req)
 
@@ -137,4 +167,5 @@ async def cancel_authorization_request(
     req.status = "cancelled"
     req.resolved_at = datetime.now(timezone.utc)
     req.resolved_by = "agent"
+    await audit.log_event(db, "request_cancelled", agent_id=agent.id, request_id=req.id)
     await db.commit()
