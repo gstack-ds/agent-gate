@@ -6,7 +6,7 @@ from decimal import Decimal
 from enum import Enum
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class AgentStatus(str, Enum):
@@ -48,10 +48,13 @@ class AgentResponse(BaseModel):
     name: str
     api_key_prefix: str
     status: AgentStatus
-    metadata: dict[str, Any]
+    # validation_alias reads the ORM attribute "metadata_" (avoids SQLAlchemy's
+    # class-level MetaData). populate_by_name=True still accepts "metadata" key
+    # in dict inputs (e.g. model_dump() round-trips and test fixtures).
+    metadata: dict[str, Any] = Field(validation_alias="metadata_")
     created_at: datetime
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
 
 class AgentCreateResponse(AgentResponse):
@@ -84,7 +87,7 @@ class RuleResponse(BaseModel):
     is_active: bool
     created_at: datetime
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
 
 class RuleUpdate(BaseModel):
@@ -112,7 +115,7 @@ class AuthorizeResponse(BaseModel):
     expires_at: Optional[datetime] = None
     created_at: datetime
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ApproveRequest(BaseModel):
