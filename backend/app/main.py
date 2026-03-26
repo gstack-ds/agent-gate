@@ -1,4 +1,5 @@
 import asyncio
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -36,9 +37,18 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
+_origins = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "https://agentgate-two.vercel.app",
+]
+_extra = os.getenv("CORS_ORIGINS", "")
+if _extra:
+    _origins.extend([o.strip() for o in _extra.split(",") if o.strip()])
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[o.strip() for o in settings.CORS_ORIGINS.split(",") if o.strip()],
+    allow_origins=_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
