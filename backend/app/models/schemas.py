@@ -156,7 +156,8 @@ class DashboardStats(BaseModel):
     approved: int
     denied: int
     expired: int
-    total_spend_approved: Decimal
+    total_spend: Decimal
+    approval_rate: float
     agents_active: int
 
 

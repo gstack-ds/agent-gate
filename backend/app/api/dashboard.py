@@ -45,7 +45,7 @@ async def get_stats(
                 func.sum(
                     case(
                         (req.status.in_(["auto_approved", "approved"]), req.amount),
-                        else_=0,
+                        else_=None,
                     )
                 ),
                 0,
@@ -61,14 +61,19 @@ async def get_stats(
     )
     agents_active = agent_count_result.scalar() or 0
 
+    total = row.total or 0
+    approved_count = (row.auto_approved or 0) + (row.approved or 0)
+    approval_rate = approved_count / total if total > 0 else 0.0
+
     return DashboardStats(
-        total_requests=row.total or 0,
+        total_requests=total,
         auto_approved=row.auto_approved or 0,
         pending=row.pending or 0,
         approved=row.approved or 0,
         denied=row.denied or 0,
         expired=row.expired or 0,
-        total_spend_approved=Decimal(str(row.total_spend or 0)),
+        total_spend=Decimal(str(row.total_spend or 0)),
+        approval_rate=approval_rate,
         agents_active=agents_active,
     )
 

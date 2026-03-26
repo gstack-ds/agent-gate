@@ -54,7 +54,7 @@ async def test_get_stats_returns_schema(user_client: AsyncClient, mock_db):
     assert response.status_code == 200
     data = response.json()
     for field in ("total_requests", "auto_approved", "pending", "approved",
-                  "denied", "expired", "total_spend_approved", "agents_active"):
+                  "denied", "expired", "total_spend", "approval_rate", "agents_active"):
         assert field in data
     assert data["total_requests"] == 10
     assert data["agents_active"] == 3
@@ -73,7 +73,7 @@ async def test_get_stats_zero_baseline(user_client: AsyncClient, mock_db):
     assert response.status_code == 200
     data = response.json()
     assert data["total_requests"] == 0
-    assert float(data["total_spend_approved"]) == 0.0
+    assert float(data["total_spend"]) == 0.0
     assert data["agents_active"] == 0
 
 
