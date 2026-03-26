@@ -6,6 +6,7 @@ import {
   getAgents,
   getAgentRules,
   createRule,
+  deleteRule,
   getRuleTemplates,
   RuleTemplate,
 } from "@/lib/api";
@@ -153,8 +154,23 @@ export default function RulesPage() {
   const [adding, setAdding] = useState(false);
 
   const [applyingTemplate, setApplyingTemplate] = useState<string | null>(null);
+  const [confirmTemplate, setConfirmTemplate] = useState<RuleTemplate | null>(null);
 
   const selectedRuleType = RULE_TYPES.find((r) => r.value === ruleType);
+
+  function templateToastMessage(template: RuleTemplate): string {
+    const key = template.name.toLowerCase();
+    if (key.includes("conservative")) {
+      return "Conservative rules applied — all purchases require your approval, $50/day limit.";
+    }
+    if (key.includes("moderate")) {
+      return "Moderate rules applied — purchases under $25 auto-approved, over $100 require your approval, $200/day limit.";
+    }
+    if (key.includes("permissive")) {
+      return "Permissive rules applied — purchases under $100 auto-approved, $500/day limit.";
+    }
+    return `${template.name} applied — ${template.rules.length} rule${template.rules.length !== 1 ? "s" : ""} active.`;
+  }
 
   async function handleAddRule(e: React.FormEvent) {
     e.preventDefault();
@@ -199,26 +215,40 @@ export default function RulesPage() {
     }
   }
 
-  async function handleApplyTemplate(template: RuleTemplate) {
+  function handleApplyTemplate(template: RuleTemplate) {
     if (!selectedAgentId) {
       toast.warning("Select an agent first");
       return;
     }
+    setConfirmTemplate(template);
+  }
+
+  async function handleConfirmApplyTemplate() {
+    if (!confirmTemplate || !selectedAgentId) return;
+    const template = confirmTemplate;
+    setConfirmTemplate(null);
     setApplyingTemplate(template.name);
+
     try {
+      // Step 1: delete all existing rules — stop on first failure
+      const currentRules = rules ?? [];
+      for (const rule of currentRules) {
+        await deleteRule(rule.id);
+      }
+
+      // Step 2: create template rules
       for (const rule of template.rules) {
         await createRule(selectedAgentId, rule.rule_type, rule.value);
       }
-      toast.success(
-        `Applied "${template.name}" template (${template.rules.length} rules)`
-      );
-      mutateRules();
+
+      toast.success(templateToastMessage(template));
     } catch (err) {
       toast.error(
         err instanceof Error ? err.message : "Failed to apply template"
       );
     } finally {
       setApplyingTemplate(null);
+      mutateRules();
     }
   }
 
@@ -307,7 +337,7 @@ export default function RulesPage() {
           })}
         </div>
         <p className="text-xs text-muted-foreground mt-2">
-          Templates add rules to the existing set — they don&apos;t replace current rules.
+          Templates replace all current rules for the selected agent.
           {!selectedAgentId && " Select an agent below to apply a template."}
         </p>
       </div>
@@ -326,7 +356,11 @@ export default function RulesPage() {
                   onValueChange={(v) => setSelectedAgentId(v ?? "")}
                 >
                   <SelectTrigger className="focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
-                    <SelectValue placeholder="Choose an agent to manage rules" />
+                    {selectedAgentId && selectedAgent ? (
+                      <span className="font-medium">{selectedAgent.name}</span>
+                    ) : (
+                      <SelectValue placeholder="Choose an agent to manage rules" />
+                    )}
                   </SelectTrigger>
                   <SelectContent>
                     {agents?.map((agent) => (
@@ -409,6 +443,52 @@ export default function RulesPage() {
           </p>
         </div>
       )}
+
+      {/* Confirm Template Apply Dialog */}
+      <Dialog
+        open={confirmTemplate !== null}
+        onOpenChange={(open) => { if (!open) setConfirmTemplate(null); }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Apply {confirmTemplate?.name} template?</DialogTitle>
+            <DialogDescription>
+              This will{" "}
+              <span className="font-medium text-foreground">
+                replace all existing rules
+              </span>{" "}
+              for{" "}
+              <span className="font-medium text-foreground">
+                {selectedAgent?.name}
+              </span>{" "}
+              with the {confirmTemplate?.name} preset.
+            </DialogDescription>
+          </DialogHeader>
+          {confirmTemplate && (
+            <div className="rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm space-y-1">
+              {confirmTemplate.rules.map((r, i) => (
+                <div key={i} className="text-muted-foreground font-mono text-xs">
+                  • {ruleTypeSummary(r.rule_type, r.value)}
+                </div>
+              ))}
+            </div>
+          )}
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => setConfirmTemplate(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleConfirmApplyTemplate}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white transition-colors duration-150"
+            >
+              Apply template
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Add Rule Dialog */}
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
