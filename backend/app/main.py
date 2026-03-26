@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import os
 from contextlib import asynccontextmanager
 
@@ -25,6 +26,8 @@ async def lifespan(app: FastAPI):
         pass
 
 
+logger = logging.getLogger(__name__)
+
 app = FastAPI(
     lifespan=lifespan,
     title="AgentGate API",
@@ -36,6 +39,9 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
 )
+
+logger.info(f"SUPABASE_URL starts with: {settings.SUPABASE_URL[:30]!r}")
+logger.info(f"CORS_ORIGINS: {settings.CORS_ORIGINS!r}")
 
 _origins = [
     "http://localhost:3000",
