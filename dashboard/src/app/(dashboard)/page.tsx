@@ -10,9 +10,28 @@ import {
   CheckCircle,
   Clock,
   DollarSign,
+  TrendingUp,
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+
+function safeNum(val: number | null | undefined): number {
+  if (val === null || val === undefined || isNaN(val as number)) return 0;
+  return val;
+}
+
+function formatDollar(val: number | null | undefined): string {
+  const n = safeNum(val);
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+  }).format(n);
+}
+
+function formatPct(val: number | null | undefined): string {
+  const n = safeNum(val);
+  return `${(n * 100).toFixed(1)}%`;
+}
 
 export default function OverviewPage() {
   const {
@@ -32,10 +51,9 @@ export default function OverviewPage() {
     refreshInterval: 10000,
   });
 
-  const {
-    data: agents,
-    isLoading: agentsLoading,
-  } = useSWR("agents", getAgents, { refreshInterval: 30000 });
+  const { data: agents, isLoading: agentsLoading } = useSWR("agents", getAgents, {
+    refreshInterval: 30000,
+  });
 
   const agentMap = new Map(agents?.map((a) => [a.id, a.name]) ?? []);
 
@@ -62,43 +80,42 @@ export default function OverviewPage() {
         </div>
       )}
 
-      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-5">
         <MetricCard
           title="Total Requests"
-          value={stats?.total_requests ?? 0}
+          value={safeNum(stats?.total_requests).toLocaleString()}
           icon={Activity}
           loading={statsLoading}
+          color="blue"
         />
         <MetricCard
           title="Auto-Approved"
-          value={stats?.auto_approved ?? 0}
+          value={safeNum(stats?.auto_approved).toLocaleString()}
           icon={CheckCircle}
-          description={
-            stats
-              ? `${Math.round(stats.approval_rate * 100)}% approval rate`
-              : undefined
-          }
           loading={statsLoading}
+          color="green"
         />
         <MetricCard
           title="Pending"
-          value={stats?.pending ?? 0}
+          value={safeNum(stats?.pending).toLocaleString()}
           icon={Clock}
           description="Awaiting your review"
           loading={statsLoading}
+          color="amber"
         />
         <MetricCard
           title="Total Spend"
-          value={
-            stats
-              ? new Intl.NumberFormat("en-US", {
-                  style: "currency",
-                  currency: "USD",
-                }).format(stats.total_spend)
-              : "$0.00"
-          }
+          value={formatDollar(stats?.total_spend)}
           icon={DollarSign}
           loading={statsLoading}
+          color="blue"
+        />
+        <MetricCard
+          title="Approval Rate"
+          value={formatPct(stats?.approval_rate)}
+          icon={TrendingUp}
+          loading={statsLoading}
+          color="green"
         />
       </div>
 
@@ -107,7 +124,9 @@ export default function OverviewPage() {
           <h2 className="text-lg font-semibold">Pending Requests</h2>
           {(pendingRequests?.length ?? 0) > 3 && (
             <Link href="/pending">
-              <Button variant="outline" size="sm">View all</Button>
+              <Button variant="outline" size="sm" className="transition-colors duration-150">
+                View all
+              </Button>
             </Link>
           )}
         </div>
@@ -132,9 +151,8 @@ export default function OverviewPage() {
         ) : (
           <div className="rounded-lg border border-dashed border-border p-12 text-center">
             <CheckCircle className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
-            <p className="text-sm text-muted-foreground">
-              No pending requests — all clear!
-            </p>
+            <p className="text-sm font-medium">No pending requests</p>
+            <p className="text-xs text-muted-foreground mt-1">All clear — your agents are operating within their rules</p>
           </div>
         )}
       </div>

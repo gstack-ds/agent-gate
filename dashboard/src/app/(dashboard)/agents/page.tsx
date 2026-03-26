@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import useSWR from "swr";
-import { getAgents, createAgent } from "@/lib/api";
+import { getAgents, createAgent, createRule, getAgentRules, Agent } from "@/lib/api";
 import { AgentCard } from "@/components/agent-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,6 +37,26 @@ export default function AgentsPage() {
   const [apiKeyCopied, setApiKeyCopied] = useState(false);
   const [keyDialogOpen, setKeyDialogOpen] = useState(false);
 
+  // Per-agent rule counts — fetched once per page load
+  const [ruleCounts, setRuleCounts] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    if (!agents || agents.length === 0) return;
+    Promise.all(
+      agents.map((a: Agent) =>
+        getAgentRules(a.id)
+          .then((rules) => ({ id: a.id, count: rules.length }))
+          .catch(() => ({ id: a.id, count: -1 }))
+      )
+    ).then((results) => {
+      const counts: Record<string, number> = {};
+      for (const r of results) {
+        counts[r.id] = r.count;
+      }
+      setRuleCounts(counts);
+    });
+  }, [agents]);
+
   async function handleRegister(e: React.FormEvent) {
     e.preventDefault();
     if (!agentName.trim()) return;
@@ -51,8 +71,27 @@ export default function AgentsPage() {
       setApiKeyCopied(false);
       setKeyDialogOpen(true);
       mutate();
+
+      // Auto-create default rules
+      try {
+        await Promise.all([
+          createRule(agent.id, "require_approval_above", { amount: 25 }),
+          createRule(agent.id, "max_per_day", { amount: 100 }),
+        ]);
+        toast.success(
+          "Default safety rules applied — all purchases over $25 require your approval."
+        );
+        // Update rule counts for the new agent
+        setRuleCounts((prev) => ({ ...prev, [agent.id]: 2 }));
+      } catch {
+        toast.warning(
+          `Agent "${agent.name}" was created, but default rules could not be applied. Add rules manually on the Rules page.`
+        );
+      }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to register agent");
+      toast.error(
+        err instanceof Error ? err.message : "Failed to register agent"
+      );
     } finally {
       setRegistering(false);
     }
@@ -67,8 +106,11 @@ export default function AgentsPage() {
   }
 
   function handleRevoked(id: string) {
-    mutate((prev) =>
-      prev?.map((a) => (a.id === id ? { ...a, status: "revoked" as const } : a)) ?? []
+    mutate(
+      (prev) =>
+        prev?.map((a) =>
+          a.id === id ? { ...a, status: "revoked" as const } : a
+        ) ?? []
     );
   }
 
@@ -81,7 +123,10 @@ export default function AgentsPage() {
             Register and manage your AI agents
           </p>
         </div>
-        <Button onClick={() => setRegisterOpen(true)} className="gap-2">
+        <Button
+          onClick={() => setRegisterOpen(true)}
+          className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white transition-colors duration-150"
+        >
           <Plus className="h-4 w-4" />
           Register agent
         </Button>
@@ -105,7 +150,12 @@ export default function AgentsPage() {
       ) : agents && agents.length > 0 ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {agents.map((agent) => (
-            <AgentCard key={agent.id} agent={agent} onRevoked={handleRevoked} />
+            <AgentCard
+              key={agent.id}
+              agent={agent}
+              onRevoked={handleRevoked}
+              ruleCount={ruleCounts[agent.id] ?? null}
+            />
           ))}
         </div>
       ) : (
@@ -114,10 +164,13 @@ export default function AgentsPage() {
             <Bot className="h-12 w-12 text-muted-foreground/40 mb-4" />
             <p className="text-base font-medium">No agents yet</p>
             <p className="text-sm text-muted-foreground mt-1 mb-4 text-center max-w-xs">
-              Register your first agent to get started. You&apos;ll receive an API key to
-              use in your agent code.
+              Register your first agent to get started. You&apos;ll receive an
+              API key to use in your agent code.
             </p>
-            <Button onClick={() => setRegisterOpen(true)} className="gap-2">
+            <Button
+              onClick={() => setRegisterOpen(true)}
+              className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white transition-colors duration-150"
+            >
               <Plus className="h-4 w-4" />
               Register agent
             </Button>
@@ -131,8 +184,8 @@ export default function AgentsPage() {
           <DialogHeader>
             <DialogTitle>Register new agent</DialogTitle>
             <DialogDescription>
-              Give your agent a descriptive name. You&apos;ll receive an API key to
-              integrate into your agent code.
+              Give your agent a descriptive name. You&apos;ll receive an API key
+              to integrate into your agent code.
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleRegister}>
@@ -144,6 +197,7 @@ export default function AgentsPage() {
                   placeholder="e.g. Shopping Agent, Research Bot"
                   value={agentName}
                   onChange={(e) => setAgentName(e.target.value)}
+                  className="focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                   required
                 />
               </div>
@@ -157,7 +211,11 @@ export default function AgentsPage() {
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={registering || !agentName.trim()}>
+              <Button
+                type="submit"
+                disabled={registering || !agentName.trim()}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white transition-colors duration-150"
+              >
                 {registering ? "Registering..." : "Register"}
               </Button>
             </DialogFooter>
@@ -171,7 +229,8 @@ export default function AgentsPage() {
           <DialogHeader>
             <DialogTitle>Agent registered: {newAgentName}</DialogTitle>
             <DialogDescription>
-              Your API key is shown below. Copy it now — it will never be shown again.
+              Your API key is shown below. Copy it now — it will never be shown
+              again.
             </DialogDescription>
           </DialogHeader>
 
@@ -181,7 +240,7 @@ export default function AgentsPage() {
             </div>
             <Button
               variant="outline"
-              className="w-full gap-2"
+              className="w-full gap-2 transition-colors duration-150"
               onClick={handleCopyKey}
             >
               {apiKeyCopied ? (
@@ -200,15 +259,17 @@ export default function AgentsPage() {
             <div className="flex items-start gap-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 p-3 text-sm text-amber-700 dark:text-amber-400">
               <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
               <span>
-                <strong>All requests require your approval</strong> until you set rules
-                for this agent. Head to the Rules page to configure auto-approval
-                thresholds.
+                Default safety rules have been applied. Purchases over $25 will
+                require your approval. Head to the Rules page to customize.
               </span>
             </div>
           </div>
 
           <DialogFooter>
-            <Button onClick={() => setKeyDialogOpen(false)}>
+            <Button
+              className="bg-indigo-600 hover:bg-indigo-700 text-white transition-colors duration-150"
+              onClick={() => setKeyDialogOpen(false)}
+            >
               I&apos;ve saved the key
             </Button>
           </DialogFooter>
