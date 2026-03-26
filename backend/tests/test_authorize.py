@@ -61,9 +61,9 @@ def mock_req_result(req) -> MagicMock:
 # POST /v1/authorize
 # ---------------------------------------------------------------------------
 
-async def test_authorize_auto_approved(agent_client: AsyncClient, mock_agent, mock_db):
-    """No rules → default auto-approve → 200, approval_token present."""
-    stored = make_auth_req(mock_agent.id, "auto_approved")
+async def test_authorize_no_rules_returns_pending(agent_client: AsyncClient, mock_agent, mock_db):
+    """No rules → default pending → 202, no approval_token."""
+    stored = make_auth_req(mock_agent.id, "pending")
     mock_db.execute = AsyncMock(return_value=mock_rules_result([]))
     mock_db.refresh = AsyncMock(side_effect=lambda obj: None)
 
@@ -73,10 +73,10 @@ async def test_authorize_auto_approved(agent_client: AsyncClient, mock_agent, mo
             json={"action": "purchase", "amount": 25.0, "vendor": "AWS"},
         )
 
-    assert response.status_code == 200
+    assert response.status_code == 202
     data = response.json()
-    assert data["status"] == "auto_approved"
-    assert data["approval_token"] is not None
+    assert data["status"] == "pending"
+    assert data["expires_at"] is not None
 
 
 async def test_authorize_blocked_vendor_denied(agent_client: AsyncClient, mock_agent, mock_db):

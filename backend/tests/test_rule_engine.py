@@ -80,7 +80,7 @@ async def test_blocked_vendor_case_insensitive():
 async def test_non_blocked_vendor_passes():
     rules = [make_rule("blocked_vendors", {"vendors": ["Azure"]})]
     result = await evaluate(make_request(vendor="AWS"), uuid.uuid4(), rules, mock_db_zero_spend())
-    assert result.decision == "auto_approved"
+    assert result.decision == "pending"
 
 
 async def test_blocked_category_returns_denied():
@@ -104,9 +104,9 @@ async def test_auto_approve_below_threshold():
 async def test_auto_approve_not_fired_at_threshold():
     """Amount exactly equal to threshold is NOT auto-approved (strict less-than)."""
     rules = [make_rule("auto_approve_below", {"amount": 25.0})]
-    # 25.00 is NOT < 25.00, so auto_approve_below doesn't fire → default approve
+    # 25.00 is NOT < 25.00, so auto_approve_below doesn't fire → default pending
     result = await evaluate(make_request(amount=Decimal("25.00")), uuid.uuid4(), rules, mock_db_zero_spend())
-    assert result.decision == "auto_approved"  # default
+    assert result.decision == "pending"  # default
     assert result.matched_rule_type is None     # via default, not auto_approve_below
 
 
@@ -114,7 +114,7 @@ async def test_auto_approve_skipped_when_no_amount():
     """If no amount is provided, auto_approve_below doesn't fire."""
     rules = [make_rule("auto_approve_below", {"amount": 50.0})]
     result = await evaluate(make_request(amount=None), uuid.uuid4(), rules, mock_db_zero_spend())
-    assert result.decision == "auto_approved"  # falls to default
+    assert result.decision == "pending"  # falls to default
 
 
 # ---------------------------------------------------------------------------
@@ -150,7 +150,7 @@ async def test_max_per_transaction_at_limit_passes():
     """Amount exactly at limit is NOT flagged (strict >)."""
     rules = [make_rule("max_per_transaction", {"amount": 25.0})]
     result = await evaluate(make_request(amount=Decimal("25.00")), uuid.uuid4(), rules, mock_db_zero_spend())
-    assert result.decision == "auto_approved"
+    assert result.decision == "pending"
 
 
 # ---------------------------------------------------------------------------
@@ -169,7 +169,7 @@ async def test_max_per_day_within_limit():
     rules = [make_rule("max_per_day", {"amount": 100.0})]
     db = mock_db_spend(Decimal("50.00"))  # already spent 50 today
     result = await evaluate(make_request(amount=Decimal("10.00")), uuid.uuid4(), rules, db)
-    assert result.decision == "auto_approved"
+    assert result.decision == "pending"
 
 
 # ---------------------------------------------------------------------------
@@ -198,7 +198,7 @@ async def test_allowed_vendors_vendor_not_in_list():
 async def test_allowed_vendors_vendor_in_list():
     rules = [make_rule("allowed_vendors", {"vendors": ["AWS", "GCP"]})]
     result = await evaluate(make_request(vendor="AWS"), uuid.uuid4(), rules, mock_db_zero_spend())
-    assert result.decision == "auto_approved"
+    assert result.decision == "pending"
 
 
 async def test_allowed_categories_category_not_in_list():
@@ -209,12 +209,12 @@ async def test_allowed_categories_category_not_in_list():
 
 
 # ---------------------------------------------------------------------------
-# Step 8: Default → AUTO_APPROVE
+# Step 8: Default → PENDING
 # ---------------------------------------------------------------------------
 
-async def test_default_auto_approve_no_rules():
+async def test_default_no_rules_returns_pending():
     result = await evaluate(make_request(), uuid.uuid4(), [], mock_db_zero_spend())
-    assert result.decision == "auto_approved"
+    assert result.decision == "pending"
     assert result.matched_rule_type is None
 
 

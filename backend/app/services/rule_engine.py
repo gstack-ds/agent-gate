@@ -11,7 +11,7 @@ Priority order:
   5. max_per_day  (aggregate DB query)     → PENDING (if would exceed daily limit)
   6. max_per_month (aggregate DB query)    → PENDING (if would exceed monthly limit)
   7. allowed_vendors / allowed_categories  → PENDING (if not in whitelist)
-  8. Default                               → AUTO_APPROVE
+  8. Default                               → PENDING
 """
 
 from __future__ import annotations
@@ -197,13 +197,15 @@ async def evaluate(
         log.append({"step": 7, "rule_type": "allowed_categories", "matched": False})
 
     # ------------------------------------------------------------------
-    # Step 8: Default → AUTO_APPROVE
+    # Step 8: Default → PENDING
+    # No explicit auto-approve rule matched — require human review until
+    # the user configures auto_approve_below or similar thresholds.
     # ------------------------------------------------------------------
     log.append({"step": 8, "rule_type": "default", "matched": True})
     return EvaluationResult(
-        decision="auto_approved",
+        decision="pending",
         matched_rule_type=None,
-        reason="All rules passed — auto-approved",
+        reason="No rules matched — pending human review",
         evaluation_log=log,
     )
 

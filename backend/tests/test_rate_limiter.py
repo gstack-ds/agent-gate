@@ -119,7 +119,7 @@ async def test_authorize_rate_limit_returns_429(agent_client: AsyncClient, mock_
                     "/v1/authorize",
                     json={"action": "purchase", "amount": 10.0},
                 )
-                assert r.status_code == 200
+                assert r.status_code != 429
 
             r = await agent_client.post(
                 "/v1/authorize",
