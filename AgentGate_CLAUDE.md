@@ -222,7 +222,7 @@ Evaluate rules against request
 5. Check `max_per_day` (aggregate today's approved amounts) → if would exceed, PENDING
 6. Check `max_per_month` (aggregate this month) → if would exceed, PENDING
 7. Check `allowed_vendors` / `allowed_categories` → if not in whitelist, PENDING
-8. Default: AUTO_APPROVE (if no rules triggered denial or review)
+8. Default: PENDING (no rules configured → always requires human review until user sets auto-approve thresholds)
 
 ---
 
@@ -448,6 +448,18 @@ print(status["status"])  # "pending", "approved", "denied", "expired"
 **Fix:** Always use proper constructors: `Rule(id=..., rule_type=..., ...)`. Use `SimpleNamespace` for pure unit tests that don't need ORM.
 **Rule:** Never use `Foo.__new__(Foo)` for ORM models in tests.
 
+**2026-03-26**
+**What happened:** Supabase switched JWT signing from HS256 (shared secret) to ES256 (ECC P-256). `require_user` was using `SUPABASE_JWT_SECRET` with `jwt.decode()` and all dashboard requests started returning 401.
+**Root cause:** Supabase now signs with a private EC key; the shared secret is no longer valid for verification.
+**Fix:** Replaced shared-secret verification with JWKS fetch from `{SUPABASE_URL}/auth/v1/.well-known/jwks.json`. Module-level `_jwks_cache` avoids fetching on every request. Removed `SUPABASE_JWT_SECRET` from config.
+**Rule:** Never use a Supabase shared JWT secret for token verification. Always use the JWKS endpoint. The `JWT_SECRET` in config is only for our own approval tokens (HS256).
+
+**2026-03-26**
+**What happened:** Dashboard activity feed rendered colored dots but no text — sentences were silently dropped.
+**Root cause:** `buildSentence()` was only looking at `details.agent_name` but the backend returns `agent_name` as a top-level field on the activity event object.
+**Fix:** Check top-level `event.agent_name` first, then `event.details?.agent_name`, then fall back to `"An agent"`. Apply the same top-level-first pattern to all fields from `GET /v1/dashboard/activity`.
+**Rule:** When consuming activity feed events, always check top-level fields before drilling into `details`.
+
 ---
 
 ## Design Decisions Log
@@ -461,6 +473,10 @@ print(status["status"])  # "pending", "approved", "denied", "expired"
 | 2026-03-24 | `RateLimiter` as module-level singleton in `rate_limiter.py` | Simple in-process sliding window; good enough for MVP; `reset()` method enables clean test isolation |
 | 2026-03-24 | Expiration via `asyncio.create_task` in FastAPI lifespan | No external scheduler needed for MVP; task cancelled cleanly on shutdown |
 | 2026-03-24 | Rule templates are static data in `rules.py` | No DB needed for read-only presets; templates are returned as-is, user applies them via separate create_rule calls |
+| 2026-03-26 | Rule engine Step 8 default changed from `auto_approved` → `pending` | New agents with no rules must require human approval for everything. Users must explicitly set `auto_approve_below` to enable any automatic approvals. Safer default. |
+| 2026-03-26 | Supabase JWT verification via JWKS, not shared secret | Supabase migrated to ES256. JWKS endpoint is the correct long-term approach. `SUPABASE_JWT_SECRET` removed from config. |
+| 2026-03-26 | Dashboard: Next.js 16, App Router, Tailwind v4, shadcn/ui v4, SWR, next-themes, sonner | Built from scratch in `dashboard/`. `middleware.ts` is named `proxy.ts` in Next.js 16. shadcn Button no longer supports `asChild`. |
+| 2026-03-26 | Dashboard auto-creates two default rules on agent registration | `require_approval_above $25` + `max_per_day $100` posted immediately after agent creation. Graceful fallback if rules API fails. |
 
 ---
 
@@ -470,7 +486,7 @@ print(status["status"])  # "pending", "approved", "denied", "expired"
 - FastAPI scaffold + Supabase DB migrations
 - `api/agents.py` — full CRUD + audit logging
 - `api/authorize.py` — full auth flow + audit + notifications + rate limiting
-- `services/rule_engine.py` — 8-step evaluation
+- `services/rule_engine.py` — 8-step evaluation (Step 8 default: **PENDING**, not auto_approved)
 - `services/token_service.py` — JWT approval tokens
 - `services/audit.py` — atomic audit logging
 - `services/notification.py` — Resend email via BackgroundTasks
@@ -480,18 +496,27 @@ print(status["status"])  # "pending", "approved", "denied", "expired"
 - `api/requests.py` — list, approve, deny with audit
 - `api/dashboard.py` — aggregate stats + activity feed
 - `sdk/python/agentgate/` — AgentGate client with authorize/authorize_async/check
-- 71 backend tests + 7 SDK tests passing
+- `middleware/auth.py` — Supabase JWT via JWKS/ES256, agent API key via SHA-256
+- 79 backend tests + 17 dashboard tests passing
+- **React dashboard** (`dashboard/`) — Next.js 16, App Router, TypeScript, Tailwind v4, shadcn/ui v4
+  - Login/Signup (Supabase Auth)
+  - Overview with metric cards (null-safe stats)
+  - Pending Requests with approve/deny + countdown timer
+  - Agents page with API key dialog, auto-default rules, zero-rules warning badge
+  - Rules page with Conservative/Moderate/Permissive template cards
+  - Activity feed with sentence descriptions + timeline layout
+  - Dark mode (next-themes), DM Sans + IBM Plex fonts, indigo accent system
 
 ### Up Next (Priority Order)
-1. **React dashboard** — Phase 1 blocker. Needs: Login (Supabase Auth), agent registration, rules UI using templates, pending request cards (approve/deny), transaction history. Start with `dashboard/` dir.
-2. **Supabase Realtime** — push pending requests to dashboard via websocket subscription on `authorization_requests` where `status=pending`.
-3. **Deploy** — Railway or Fly.io. Wire `DATABASE_URL` + `SUPABASE_*` + `RESEND_API_KEY` env vars. Add `Dockerfile` to `backend/`.
+1. **End-to-end smoke test** — run `backend/` + `dashboard/` together against a real Supabase instance. Wire `dashboard/.env.local` with the real anon key from `agentgate api keys.txt`. Confirm login → register agent → set rules → authorize request → approve in dashboard works end-to-end.
+2. **Supabase Realtime** — push pending requests to dashboard via websocket subscription on `authorization_requests` where `status=pending`. Currently the dashboard polls every 8s — real-time would be better UX.
+3. **Deploy** — Railway or Fly.io. Add `Dockerfile` to `backend/`. Wire env vars. Add `dashboard/` deployment (Vercel is the obvious choice for Next.js).
 4. **JavaScript SDK** — Phase 2. Mirror the Python SDK at `sdk/javascript/`.
-5. **Spending analytics charts** — dashboard Phase 2. Daily/weekly/monthly spend via `GET /v1/dashboard/stats` already exists.
+5. **Spending analytics charts** — dashboard already has `GET /v1/dashboard/stats`, just needs a chart component (recharts or similar).
 6. **LangChain / CrewAI integrations** — thin wrappers around the Python SDK.
 
 ### Next Session Should Start With
-Read this file, then: the React dashboard (`dashboard/` directory doesn't exist yet — needs scaffolding). Use `/project-kickoff` style approach within the existing repo structure.
+Read this file, then wire up the real Supabase anon key in `dashboard/.env.local` (it's in `agentgate api keys.txt` at the repo root — do NOT commit that file). Run `npm run dev` + `uvicorn app.main:app --reload` and do an end-to-end smoke test. Fix any integration issues before adding new features.
 
 ---
 
@@ -501,3 +526,7 @@ Read this file, then: the React dashboard (`dashboard/` directory doesn't exist 
 - **`mock_db.execute` side_effect for multi-call tests:** When a handler calls `db.execute` more than once (e.g., list_rules calls it twice — once for agent, once for rules), use `side_effect=[result1, result2]`.
 - **Rate limiter state leaks between tests:** The `test_rate_limiter.py` `autouse` fixture calls `authorize_limiter.reset()` before/after each test. Any new test that hits POST /v1/authorize should do the same.
 - **`AgentGate_CLAUDE.md` is the project CLAUDE.md** — there is no separate `CLAUDE.md` at the repo root. Pass this file path when starting a new session.
+- **`agentgate api keys.txt` must never be committed** — contains real Supabase JWT secret + anon key. Add to `.gitignore` if not already there.
+- **Dashboard `proxy.ts` not `middleware.ts`** — Next.js 16 renamed the auth redirect file. Don't create a `middleware.ts` or it will be ignored.
+- **shadcn/ui v4: Button no longer supports `asChild`** — wrap `<Link>` around `<Button>` instead. Using `asChild` will throw a runtime error.
+- **Dashboard rule templates need an agentId** — `GET /v1/agents/{id}/rules/templates` is per-agent. Template cards show always, but Apply is disabled until an agent is selected. Fallback templates are hardcoded in the frontend in case the endpoint fails.
