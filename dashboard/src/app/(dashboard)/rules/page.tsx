@@ -363,7 +363,7 @@ export default function RulesPage() {
                     )}
                   </SelectTrigger>
                   <SelectContent>
-                    {agents?.map((agent) => (
+                    {agents?.filter((a) => a.status !== "revoked").map((agent) => (
                       <SelectItem key={agent.id} value={agent.id}>
                         <div className="flex flex-col">
                           <span className="font-medium">
@@ -373,9 +373,6 @@ export default function RulesPage() {
                                 ({agent.status})
                               </span>
                             )}
-                          </span>
-                          <span className="text-xs text-slate-400 font-mono">
-                            {agent.id}
                           </span>
                         </div>
                       </SelectItem>

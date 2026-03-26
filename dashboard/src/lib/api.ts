@@ -83,9 +83,12 @@ export interface DashboardStats {
   total_requests: number;
   auto_approved: number;
   pending: number;
+  approved: number;
   denied: number;
+  expired: number;
   total_spend: number;
   approval_rate: number;
+  agents_active: number;
 }
 
 export interface ActivityItem {
