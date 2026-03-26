@@ -460,6 +460,18 @@ print(status["status"])  # "pending", "approved", "denied", "expired"
 **Fix:** Check top-level `event.agent_name` first, then `event.details?.agent_name`, then fall back to `"An agent"`. Apply the same top-level-first pattern to all fields from `GET /v1/dashboard/activity`.
 **Rule:** When consuming activity feed events, always check top-level fields before drilling into `details`.
 
+**2026-03-26**
+**What happened:** Railway deploy failed — "COPY app/ app/ not found". `dockerfilePath` was set but not `buildContext`.
+**Root cause:** Railway resolves `COPY` paths relative to `buildContext`, not the Dockerfile location. Without `buildContext = "backend"`, Docker's build context was the repo root where `app/` doesn't exist.
+**Fix:** Added `buildContext = "backend"` to `railway.toml`.
+**Rule:** When `dockerfilePath` is not at the repo root, always set `buildContext` explicitly in `railway.toml`.
+
+**2026-03-26**
+**What happened:** Railway deploy crashed with `DuplicatePreparedStatementError` on every DB query.
+**Root cause:** Supabase Transaction Pooler uses pgbouncer, which doesn't support PostgreSQL prepared statements. asyncpg's prepared statement cache sends `PREPARE` commands that confuse the pooler.
+**Fix:** Added `connect_args={"statement_cache_size": 0}` to `create_async_engine()` in `database.py`.
+**Rule:** Always set `statement_cache_size=0` when connecting through Supabase Transaction Pooler (pgbouncer). Session Pooler or Direct Connection don't need this.
+
 ---
 
 ## Design Decisions Log
@@ -477,6 +489,9 @@ print(status["status"])  # "pending", "approved", "denied", "expired"
 | 2026-03-26 | Supabase JWT verification via JWKS, not shared secret | Supabase migrated to ES256. JWKS endpoint is the correct long-term approach. `SUPABASE_JWT_SECRET` removed from config. |
 | 2026-03-26 | Dashboard: Next.js 16, App Router, Tailwind v4, shadcn/ui v4, SWR, next-themes, sonner | Built from scratch in `dashboard/`. `middleware.ts` is named `proxy.ts` in Next.js 16. shadcn Button no longer supports `asChild`. |
 | 2026-03-26 | Dashboard auto-creates two default rules on agent registration | `require_approval_above $25` + `max_per_day $100` posted immediately after agent creation. Graceful fallback if rules API fails. |
+| 2026-03-26 | Backend deployed to Railway; dashboard to Vercel (agentgate-two.vercel.app) | Railway uses `backend/Dockerfile` + `buildContext = "backend"`. CORS hardcodes Vercel origin; `CORS_ORIGINS` env var extends the list without redeploying. |
+| 2026-03-26 | CORS: hardcoded baseline origins + env var extension | `CORS_ORIGINS` env var was silently not being read in production. Hardcoded localhost + Vercel URL as baseline in `main.py`; env var appends on top. |
+| 2026-03-26 | `statement_cache_size=0` for pgbouncer compatibility | Supabase Transaction Pooler (pgbouncer) doesn't support prepared statements. Disabling asyncpg's cache fixes `DuplicatePreparedStatementError`. |
 
 ---
 
@@ -497,26 +512,28 @@ print(status["status"])  # "pending", "approved", "denied", "expired"
 - `api/dashboard.py` — aggregate stats + activity feed
 - `sdk/python/agentgate/` — AgentGate client with authorize/authorize_async/check
 - `middleware/auth.py` — Supabase JWT via JWKS/ES256, agent API key via SHA-256
-- 79 backend tests + 17 dashboard tests passing
+- 79 backend tests passing
 - **React dashboard** (`dashboard/`) — Next.js 16, App Router, TypeScript, Tailwind v4, shadcn/ui v4
   - Login/Signup (Supabase Auth)
-  - Overview with metric cards (null-safe stats)
-  - Pending Requests with approve/deny + countdown timer
-  - Agents page with API key dialog, auto-default rules, zero-rules warning badge
+  - Overview with metric cards (null-safe stats, correct total_spend + approval_rate)
+  - Pending Requests with approve/deny + optional deny reason textarea + countdown timer
+  - Agents page: revoked cards grayed out, sorted active-first, revoked agents excluded from Rules dropdown
   - Rules page with Conservative/Moderate/Permissive template cards
   - Activity feed with sentence descriptions + timeline layout
-  - Dark mode (next-themes), DM Sans + IBM Plex fonts, indigo accent system
+  - Dark mode toggle (light ↔ dark only, no system mode), DM Sans + IBM Plex fonts
+- **Backend deployed on Railway** — `backend/Dockerfile`, `railway.toml` with `buildContext = "backend"`
+- **Dashboard deployed on Vercel** — `https://agentgate-two.vercel.app`
 
 ### Up Next (Priority Order)
-1. **End-to-end smoke test** — run `backend/` + `dashboard/` together against a real Supabase instance. Wire `dashboard/.env.local` with the real anon key from `agentgate api keys.txt`. Confirm login → register agent → set rules → authorize request → approve in dashboard works end-to-end.
-2. **Supabase Realtime** — push pending requests to dashboard via websocket subscription on `authorization_requests` where `status=pending`. Currently the dashboard polls every 8s — real-time would be better UX.
-3. **Deploy** — Railway or Fly.io. Add `Dockerfile` to `backend/`. Wire env vars. Add `dashboard/` deployment (Vercel is the obvious choice for Next.js).
-4. **JavaScript SDK** — Phase 2. Mirror the Python SDK at `sdk/javascript/`.
-5. **Spending analytics charts** — dashboard already has `GET /v1/dashboard/stats`, just needs a chart component (recharts or similar).
+1. **Remove startup debug logs** — `logger.info(f"SUPABASE_URL starts with: ...")` and `logger.info(f"CORS_ORIGINS: ...")` in `backend/app/main.py` were added for Railway env var debugging. Remove once confirmed working.
+2. **Verify Railway deployment is healthy** — check Railway logs to confirm `SUPABASE_URL` and `CORS_ORIGINS` are reading correctly. Confirm dashboard on Vercel can authenticate and hit the API.
+3. **Supabase Realtime** — push pending requests to dashboard via websocket subscription on `authorization_requests` where `status=pending`. Dashboard currently polls every 8–10s — real-time would be better UX.
+4. **Spending analytics charts** — `GET /v1/dashboard/stats` already returns all data; needs a chart component (recharts or similar) on the Overview page.
+5. **JavaScript SDK** — Phase 2. Mirror the Python SDK at `sdk/javascript/`.
 6. **LangChain / CrewAI integrations** — thin wrappers around the Python SDK.
 
 ### Next Session Should Start With
-Read this file, then wire up the real Supabase anon key in `dashboard/.env.local` (it's in `agentgate api keys.txt` at the repo root — do NOT commit that file). Run `npm run dev` + `uvicorn app.main:app --reload` and do an end-to-end smoke test. Fix any integration issues before adding new features.
+Check Railway logs to confirm env vars are being read (look for the SUPABASE_URL/CORS_ORIGINS startup log lines). If confirmed, remove the two debug `logger.info` lines from `backend/app/main.py`. Then do an end-to-end smoke test: login → register agent → set rules → authorize request → approve in dashboard.
 
 ---
 
@@ -530,3 +547,6 @@ Read this file, then wire up the real Supabase anon key in `dashboard/.env.local
 - **Dashboard `proxy.ts` not `middleware.ts`** — Next.js 16 renamed the auth redirect file. Don't create a `middleware.ts` or it will be ignored.
 - **shadcn/ui v4: Button no longer supports `asChild`** — wrap `<Link>` around `<Button>` instead. Using `asChild` will throw a runtime error.
 - **Dashboard rule templates need an agentId** — `GET /v1/agents/{id}/rules/templates` is per-agent. Template cards show always, but Apply is disabled until an agent is selected. Fallback templates are hardcoded in the frontend in case the endpoint fails.
+- **Railway `buildContext` is required** — setting only `dockerfilePath` in `railway.toml` is not enough. Always pair it with `buildContext = "backend"` (or the appropriate subdirectory) or COPY commands will fail.
+- **pgbouncer (Supabase Transaction Pooler) requires `statement_cache_size=0`** — always include `connect_args={"statement_cache_size": 0}` in `create_async_engine()` when targeting Supabase. Session Pooler and Direct Connection don't need this.
+- **`DashboardStats` field names must match exactly** — backend returns `total_spend` and `approval_rate` (0.0–1.0 decimal); frontend `formatPct` multiplies by 100. If the field name drifts the stat shows $0 / 0%.
