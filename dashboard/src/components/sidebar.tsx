@@ -17,7 +17,6 @@ import {
   Shield,
   Sun,
   Moon,
-  Monitor,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
@@ -43,20 +42,18 @@ function ThemeToggle() {
   if (!mounted) {
     return (
       <button className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-slate-800 transition-colors duration-150">
-        <Monitor className="h-4 w-4" />
+        <Sun className="h-4 w-4" />
         Theme
       </button>
     );
   }
 
   const cycleTheme = () => {
-    if (theme === "system") setTheme("light");
-    else if (theme === "light") setTheme("dark");
-    else setTheme("system");
+    setTheme(theme === "dark" ? "light" : "dark");
   };
 
-  const Icon = theme === "light" ? Sun : theme === "dark" ? Moon : Monitor;
-  const label = theme === "light" ? "Light" : theme === "dark" ? "Dark" : "System";
+  const Icon = theme === "dark" ? Moon : Sun;
+  const label = theme === "dark" ? "Dark" : "Light";
 
   return (
     <button
