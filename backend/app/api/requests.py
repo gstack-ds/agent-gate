@@ -28,7 +28,7 @@ async def list_requests(
     limit: int = Query(50, le=200),
 ) -> List[AuthorizeResponse]:
     q = (
-        select(AuthorizationRequest)
+        select(AuthorizationRequest, Agent.name.label("agent_name"))
         .join(Agent, AuthorizationRequest.agent_id == Agent.id)
         .where(Agent.user_id == user.id)
         .order_by(AuthorizationRequest.created_at.desc())
@@ -37,8 +37,11 @@ async def list_requests(
     if filter_status is not None:
         q = q.where(AuthorizationRequest.status == filter_status.value)
     result = await db.execute(q)
-    reqs = result.scalars().all()
-    return [AuthorizeResponse.model_validate(r) for r in reqs]
+    rows = result.all()
+    return [
+        AuthorizeResponse.model_validate(req).model_copy(update={"agent_name": agent_name})
+        for req, agent_name in rows
+    ]
 
 
 @router.post(

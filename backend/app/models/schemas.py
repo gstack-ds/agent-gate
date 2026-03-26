@@ -108,6 +108,14 @@ class AuthorizeRequest(BaseModel):
 
 class AuthorizeResponse(BaseModel):
     id: uuid.UUID
+    agent_id: Optional[uuid.UUID] = None
+    agent_name: Optional[str] = None  # populated via JOIN in list_requests
+    action: Optional[str] = None
+    amount: Optional[Decimal] = None
+    currency: Optional[str] = None
+    vendor: Optional[str] = None
+    category: Optional[str] = None
+    description: Optional[str] = None
     status: RequestStatus
     approval_token: Optional[str] = None
     resolved_by: Optional[str] = None
@@ -154,9 +162,10 @@ class DashboardStats(BaseModel):
 
 class ActivityItem(BaseModel):
     id: uuid.UUID
+    event_type: str  # mapped from request status (auto_approved, human_approved, etc.)
     agent_name: str
     action: str
     amount: Optional[Decimal]
     vendor: Optional[str]
-    status: RequestStatus
+    description: Optional[str]
     created_at: datetime

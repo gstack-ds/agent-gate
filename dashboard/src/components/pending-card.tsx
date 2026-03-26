@@ -3,9 +3,10 @@
 import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { approveRequest, denyRequest, AuthRequest } from "@/lib/api";
 import { toast } from "sonner";
-import { Clock, AlertTriangle, Loader2 } from "lucide-react";
+import { Clock, Loader2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface PendingCardProps {
@@ -28,7 +29,7 @@ function formatCountdown(expiresAt: string | null): string {
   return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 }
 
-function formatAmount(amount: number | null, currency: string): string {
+function formatAmount(amount: number | null, currency: string | null): string {
   if (amount === null) return "N/A";
   return new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -49,6 +50,8 @@ export function PendingCard({ request, agentName, onResolved }: PendingCardProps
     formatCountdown(request.expires_at)
   );
   const [loading, setLoading] = useState<"approve" | "deny" | null>(null);
+  const [denyExpanded, setDenyExpanded] = useState(false);
+  const [denyReason, setDenyReason] = useState("");
 
   useEffect(() => {
     if (!request.expires_at) return;
@@ -71,15 +74,24 @@ export function PendingCard({ request, agentName, onResolved }: PendingCardProps
   }
 
   async function handleDeny() {
+    if (!denyExpanded) {
+      setDenyExpanded(true);
+      return;
+    }
     setLoading("deny");
     try {
-      await denyRequest(request.id);
+      await denyRequest(request.id, denyReason.trim() || undefined);
       toast.success("Request denied");
       onResolved(request.id);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to deny");
       setLoading(null);
     }
+  }
+
+  function handleCancelDeny() {
+    setDenyExpanded(false);
+    setDenyReason("");
   }
 
   const remaining = getRemainingMs(request.expires_at);
@@ -139,12 +151,6 @@ export function PendingCard({ request, agentName, onResolved }: PendingCardProps
           </div>
         )}
 
-        {request.escalation_reason && (
-          <div className="flex items-start gap-2 rounded-md bg-amber-100 dark:bg-amber-900/30 p-2.5 text-xs text-amber-800 dark:text-amber-300">
-            <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
-            <span>{request.escalation_reason}</span>
-          </div>
-        )}
 
         {countdown && (
           <div
@@ -163,25 +169,62 @@ export function PendingCard({ request, agentName, onResolved }: PendingCardProps
         )}
       </div>
 
+      {/* Deny reason input */}
+      {denyExpanded && (
+        <div className="px-4 pb-3 space-y-2">
+          <Textarea
+            placeholder="Reason for denial (optional)"
+            value={denyReason}
+            onChange={(e) => setDenyReason(e.target.value)}
+            className="text-sm resize-none h-16"
+            autoFocus
+          />
+        </div>
+      )}
+
       {/* Footer buttons */}
       <div className="px-4 pb-4 flex gap-2">
-        <Button
-          variant="outline"
-          className="flex-1 border-rose-300 text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:border-rose-700 dark:text-rose-400 dark:hover:bg-rose-950/30 transition-colors duration-150"
-          onClick={handleDeny}
-          disabled={loading !== null}
-        >
-          {loading === "deny" && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />}
-          {loading === "deny" ? "Denying..." : "Deny"}
-        </Button>
-        <Button
-          className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white transition-colors duration-150"
-          onClick={handleApprove}
-          disabled={loading !== null}
-        >
-          {loading === "approve" && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />}
-          {loading === "approve" ? "Approving..." : "Approve"}
-        </Button>
+        {denyExpanded ? (
+          <>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="flex-shrink-0 text-slate-500"
+              onClick={handleCancelDeny}
+              disabled={loading !== null}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              className="flex-1 border-rose-300 text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:border-rose-700 dark:text-rose-400 dark:hover:bg-rose-950/30 transition-colors duration-150"
+              onClick={handleDeny}
+              disabled={loading !== null}
+            >
+              {loading === "deny" && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />}
+              {loading === "deny" ? "Denying..." : "Confirm Deny"}
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button
+              variant="outline"
+              className="flex-1 border-rose-300 text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:border-rose-700 dark:text-rose-400 dark:hover:bg-rose-950/30 transition-colors duration-150"
+              onClick={handleDeny}
+              disabled={loading !== null}
+            >
+              Deny
+            </Button>
+            <Button
+              className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white transition-colors duration-150"
+              onClick={handleApprove}
+              disabled={loading !== null}
+            >
+              {loading === "approve" && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />}
+              {loading === "approve" ? "Approving..." : "Approve"}
+            </Button>
+          </>
+        )}
       </div>
     </div>
   );

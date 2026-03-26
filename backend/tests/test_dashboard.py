@@ -31,6 +31,7 @@ def _activity_row(agent_name="Test Agent"):
     row.action = "purchase"
     row.amount = Decimal("50.00")
     row.vendor = "AWS"
+    row.description = None
     row.status = "auto_approved"
     row.created_at = datetime.now(timezone.utc)
     return row

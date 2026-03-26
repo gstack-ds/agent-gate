@@ -65,16 +65,16 @@ export interface Rule {
 
 export interface AuthRequest {
   id: string;
-  agent_id: string;
-  agent_name?: string;
-  action: string;
+  agent_id: string | null;
+  agent_name: string | null;
+  action: string | null;
   amount: number | null;
-  currency: string;
+  currency: string | null;
   vendor: string | null;
   category: string | null;
   description: string | null;
   status: string;
-  escalation_reason?: string | null;
+  rule_evaluation?: Record<string, unknown> | null;
   expires_at: string | null;
   created_at: string;
 }
@@ -91,10 +91,12 @@ export interface DashboardStats {
 export interface ActivityItem {
   id: string;
   event_type: string;
+  agent_name: string;
+  action: string;
+  amount: number | null;
+  vendor: string | null;
+  description: string | null;
   created_at: string;
-  details: Record<string, unknown>;
-  agent_id?: string;
-  request_id?: string;
 }
 
 export interface RuleTemplate {
@@ -168,11 +170,17 @@ export async function getRequests(status?: string): Promise<AuthRequest[]> {
 }
 
 export async function approveRequest(id: string): Promise<void> {
-  return apiFetch<void>(`/v1/requests/${id}/approve`, { method: "POST" });
+  return apiFetch<void>(`/v1/requests/${id}/approve`, {
+    method: "POST",
+    body: JSON.stringify({ note: "Approved via dashboard" }),
+  });
 }
 
-export async function denyRequest(id: string): Promise<void> {
-  return apiFetch<void>(`/v1/requests/${id}/deny`, { method: "POST" });
+export async function denyRequest(id: string, reason?: string): Promise<void> {
+  return apiFetch<void>(`/v1/requests/${id}/deny`, {
+    method: "POST",
+    body: JSON.stringify({ reason: reason || "Denied via dashboard" }),
+  });
 }
 
 // --- Dashboard ---

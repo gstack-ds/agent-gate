@@ -14,6 +14,15 @@ router = APIRouter()
 
 req = AuthorizationRequest
 
+_STATUS_TO_EVENT_TYPE = {
+    "auto_approved": "auto_approved",
+    "approved": "human_approved",
+    "pending": "request_pending",
+    "denied": "human_denied",
+    "expired": "request_expired",
+    "cancelled": "request_cancelled",
+}
+
 
 @router.get(
     "/dashboard/stats",
@@ -80,6 +89,7 @@ async def get_activity(
             req.action,
             req.amount,
             req.vendor,
+            req.description,
             req.status,
             req.created_at,
         )
@@ -92,11 +102,12 @@ async def get_activity(
     return [
         ActivityItem(
             id=r.id,
+            event_type=_STATUS_TO_EVENT_TYPE.get(r.status, r.status),
             agent_name=r.agent_name,
             action=r.action,
             amount=r.amount,
             vendor=r.vendor,
-            status=r.status,
+            description=r.description,
             created_at=r.created_at,
         )
         for r in rows

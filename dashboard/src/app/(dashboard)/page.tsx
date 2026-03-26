@@ -146,7 +146,7 @@ export default function OverviewPage() {
               <PendingCard
                 key={req.id}
                 request={req}
-                agentName={agentMap.get(req.agent_id)}
+                agentName={req.agent_id ? agentMap.get(req.agent_id) : undefined}
                 onResolved={handleResolved}
               />
             ))}

@@ -43,21 +43,31 @@ def mock_scalars_all(items: list) -> MagicMock:
     return m
 
 
+def mock_all_tuples(reqs: list) -> MagicMock:
+    """Return (AuthorizationRequest, agent_name) tuples — matches list_requests JOIN."""
+    m = MagicMock()
+    m.all.return_value = [(r, "Test Agent") for r in reqs]
+    return m
+
+
 # ---------------------------------------------------------------------------
 # GET /v1/requests
 # ---------------------------------------------------------------------------
 
 async def test_list_requests_returns_requests(user_client: AsyncClient, mock_user, mock_db):
     reqs = [_make_req(mock_user.id) for _ in range(3)]
-    mock_db.execute = AsyncMock(return_value=mock_scalars_all(reqs))
+    mock_db.execute = AsyncMock(return_value=mock_all_tuples(reqs))
 
     response = await user_client.get("/v1/requests")
     assert response.status_code == 200
-    assert len(response.json()) == 3
+    data = response.json()
+    assert len(data) == 3
+    # agent_name should be populated from the JOIN
+    assert data[0]["agent_name"] == "Test Agent"
 
 
 async def test_list_requests_empty(user_client: AsyncClient, mock_user, mock_db):
-    mock_db.execute = AsyncMock(return_value=mock_scalars_all([]))
+    mock_db.execute = AsyncMock(return_value=mock_all_tuples([]))
 
     response = await user_client.get("/v1/requests")
     assert response.status_code == 200

@@ -17,29 +17,12 @@ function formatCurrency(amount: unknown): string {
 
 function buildSentence(item: ActivityItem): string {
   const eventType = item.event_type ?? "";
-  const details = item.details ?? {};
-
-  const agent =
-    (item as ActivityItem & { agent_name?: string }).agent_name ||
-    (typeof details.agent_name === "string" && details.agent_name
-      ? details.agent_name
-      : null) ||
-    "An agent";
-
-  const vendor =
-    typeof details.vendor === "string" && details.vendor
-      ? details.vendor
-      : "unknown vendor";
-
-  const action =
-    typeof details.action === "string" && details.action
-      ? details.action
-      : "purchase";
-
-  const amountStr =
-    details.amount !== undefined && details.amount !== null
-      ? formatCurrency(details.amount)
-      : "";
+  const agent = item.agent_name || "An agent";
+  const vendor = item.vendor || "unknown vendor";
+  const action = item.action || "purchase";
+  const amountStr = item.amount !== null && item.amount !== undefined
+    ? formatCurrency(item.amount)
+    : "";
 
   switch (eventType) {
     case "request_created":
@@ -64,20 +47,12 @@ function buildSentence(item: ActivityItem): string {
         : `You denied ${agent}'s request at ${vendor}`;
     case "request_pending":
       return amountStr
-        ? `${agent}'s request for ${action} at ${vendor} (${amountStr}) — awaiting your approval`
+        ? `${agent}'s ${action} at ${vendor} (${amountStr}) — awaiting your approval`
         : `${agent}'s request at ${vendor} is awaiting your approval`;
     case "request_cancelled":
       return `${agent} cancelled their request`;
     case "request_expired":
       return `${agent}'s request at ${vendor} expired without a response`;
-    case "agent_registered":
-      return `Agent "${agent}" was registered`;
-    case "agent_revoked":
-      return `Agent "${agent}" was revoked`;
-    case "rule_created":
-      return `A new rule was added for ${agent}`;
-    case "rule_deleted":
-      return `A rule was removed for ${agent}`;
     default:
       return eventType ? eventType.replace(/_/g, " ") : "Unknown event";
   }
@@ -116,15 +91,6 @@ function timeAgo(dateStr: string): string {
   return `${days}d ago`;
 }
 
-function getAgentName(item: ActivityItem): string {
-  const withAgent = item as ActivityItem & { agent_name?: string };
-  if (withAgent.agent_name) return withAgent.agent_name;
-  const details = item.details ?? {};
-  if (typeof details.agent_name === "string" && details.agent_name) {
-    return details.agent_name;
-  }
-  return "";
-}
 
 export function ActivityFeed({ items, loading = false }: ActivityFeedProps) {
   if (loading) {
@@ -157,7 +123,7 @@ export function ActivityFeed({ items, loading = false }: ActivityFeedProps) {
     <div className="relative border-l-2 border-slate-200 dark:border-slate-700 ml-3">
       {items.map((item) => {
         const sentence = buildSentence(item);
-        const agentName = getAgentName(item);
+        const agentName = item.agent_name || "";
         const dotColor = eventColor(item.event_type);
 
         let displaySentence: React.ReactNode = sentence;
