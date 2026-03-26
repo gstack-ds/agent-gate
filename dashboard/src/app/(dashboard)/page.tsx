@@ -4,7 +4,6 @@ import useSWR from "swr";
 import { getDashboardStats, getRequests, getAgents } from "@/lib/api";
 import { MetricCard } from "@/components/metric-card";
 import { PendingCard } from "@/components/pending-card";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   Activity,
   CheckCircle,
@@ -63,9 +62,11 @@ export default function OverviewPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 page-enter">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Overview</h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white font-heading">
+          Overview
+        </h1>
         <p className="text-muted-foreground text-sm mt-1">
           Monitor your agent activity and spending
         </p>
@@ -80,7 +81,7 @@ export default function OverviewPage() {
         </div>
       )}
 
-      <div className="grid gap-4 grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
         <MetricCard
           title="Total Requests"
           value={safeNum(stats?.total_requests).toLocaleString()}
@@ -93,7 +94,7 @@ export default function OverviewPage() {
           value={safeNum(stats?.auto_approved).toLocaleString()}
           icon={CheckCircle}
           loading={statsLoading}
-          color="green"
+          color="emerald"
         />
         <MetricCard
           title="Pending"
@@ -108,7 +109,7 @@ export default function OverviewPage() {
           value={formatDollar(stats?.total_spend)}
           icon={DollarSign}
           loading={statsLoading}
-          color="blue"
+          color="indigo"
         />
         <MetricCard
           title="Approval Rate"
@@ -121,7 +122,9 @@ export default function OverviewPage() {
 
       <div>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold">Pending Requests</h2>
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-white font-heading">
+            Requires Your Attention
+          </h2>
           {(pendingRequests?.length ?? 0) > 3 && (
             <Link href="/pending">
               <Button variant="outline" size="sm" className="transition-colors duration-150">
@@ -134,7 +137,7 @@ export default function OverviewPage() {
         {pendingLoading || agentsLoading ? (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {[1, 2, 3].map((i) => (
-              <Skeleton key={i} className="h-48 rounded-lg" />
+              <div key={i} className="skeleton-shimmer rounded-xl h-48" />
             ))}
           </div>
         ) : pendingRequests && pendingRequests.length > 0 ? (
@@ -149,10 +152,14 @@ export default function OverviewPage() {
             ))}
           </div>
         ) : (
-          <div className="rounded-lg border border-dashed border-border p-12 text-center">
-            <CheckCircle className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
-            <p className="text-sm font-medium">No pending requests</p>
-            <p className="text-xs text-muted-foreground mt-1">All clear — your agents are operating within their rules</p>
+          <div className="rounded-xl border border-dashed border-border p-12 text-center bg-white dark:bg-slate-800">
+            <CheckCircle className="h-10 w-10 text-emerald-500/60 mx-auto mb-3" />
+            <p className="text-sm font-medium text-slate-900 dark:text-white">
+              All caught up!
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              No pending requests — your agents are operating within their rules
+            </p>
           </div>
         )}
       </div>

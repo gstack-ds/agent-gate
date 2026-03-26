@@ -9,96 +9,133 @@ interface ActivityFeedProps {
   loading?: boolean;
 }
 
+function formatCurrency(amount: unknown): string {
+  const n = Number(amount);
+  if (isNaN(n)) return "";
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
+}
+
+function buildSentence(item: ActivityItem): string {
+  const eventType = item.event_type ?? "";
+  const details = item.details ?? {};
+
+  const agent =
+    (item as ActivityItem & { agent_name?: string }).agent_name ||
+    (typeof details.agent_name === "string" && details.agent_name
+      ? details.agent_name
+      : null) ||
+    "An agent";
+
+  const vendor =
+    typeof details.vendor === "string" && details.vendor
+      ? details.vendor
+      : "unknown vendor";
+
+  const action =
+    typeof details.action === "string" && details.action
+      ? details.action
+      : "purchase";
+
+  const amountStr =
+    details.amount !== undefined && details.amount !== null
+      ? formatCurrency(details.amount)
+      : "";
+
+  switch (eventType) {
+    case "request_created":
+      return amountStr
+        ? `${agent} requested ${action} at ${vendor} for ${amountStr}`
+        : `${agent} requested ${action} at ${vendor}`;
+    case "auto_approved":
+      return amountStr
+        ? `${agent} auto-approved: ${action} at ${vendor} for ${amountStr}`
+        : `${agent}'s request was auto-approved at ${vendor}`;
+    case "approved":
+    case "human_approved":
+      return amountStr
+        ? `You approved ${agent}'s ${action} at ${vendor} for ${amountStr}`
+        : `You approved ${agent}'s request at ${vendor}`;
+    case "request_denied_by_rule":
+      return `${agent}'s request at ${vendor} was blocked by a rule`;
+    case "denied":
+    case "human_denied":
+      return amountStr
+        ? `You denied ${agent}'s request at ${vendor} for ${amountStr}`
+        : `You denied ${agent}'s request at ${vendor}`;
+    case "request_pending":
+      return amountStr
+        ? `${agent}'s request for ${action} at ${vendor} (${amountStr}) — awaiting your approval`
+        : `${agent}'s request at ${vendor} is awaiting your approval`;
+    case "request_cancelled":
+      return `${agent} cancelled their request`;
+    case "request_expired":
+      return `${agent}'s request at ${vendor} expired without a response`;
+    case "agent_registered":
+      return `Agent "${agent}" was registered`;
+    case "agent_revoked":
+      return `Agent "${agent}" was revoked`;
+    case "rule_created":
+      return `A new rule was added for ${agent}`;
+    case "rule_deleted":
+      return `A rule was removed for ${agent}`;
+    default:
+      return eventType ? eventType.replace(/_/g, " ") : "Unknown event";
+  }
+}
+
 function eventColor(eventType: string | undefined | null): string {
-  if (!eventType) return "bg-gray-500";
-  if (eventType.includes("approved") || eventType.includes("auto_approved")) {
-    return "bg-green-500";
+  if (!eventType) return "bg-slate-400";
+  if (eventType === "auto_approved" || eventType === "approved" || eventType === "human_approved") {
+    return "bg-emerald-500";
   }
   if (
     eventType.includes("denied") ||
     eventType.includes("revoked") ||
-    eventType.includes("expired")
+    eventType.includes("expired") ||
+    eventType.includes("blocked")
   ) {
-    return "bg-red-500";
+    return "bg-rose-500";
   }
   if (eventType.includes("pending")) {
     return "bg-amber-500";
   }
-  if (eventType.includes("created")) {
+  if (eventType.includes("created") || eventType.includes("registered")) {
     return "bg-blue-500";
   }
-  return "bg-blue-500";
-}
-
-function eventSentence(item: ActivityItem): string {
-  const eventType = item.event_type ?? "";
-  const details = item.details ?? {};
-  const agentName =
-    typeof details.agent_name === "string" && details.agent_name
-      ? details.agent_name
-      : "An agent";
-  const amount =
-    details.amount !== undefined && details.amount !== null
-      ? `$${Number(details.amount).toFixed(2)}`
-      : null;
-  const vendor =
-    typeof details.vendor === "string" && details.vendor
-      ? ` at ${details.vendor}`
-      : "";
-
-  switch (eventType) {
-    case "auto_approved":
-      return amount
-        ? `${agentName} purchased ${amount}${vendor}`
-        : `${agentName}'s request was auto-approved${vendor}`;
-    case "human_approved":
-      return amount
-        ? `You approved ${agentName}'s ${amount} request${vendor}`
-        : `You approved ${agentName}'s request${vendor}`;
-    case "human_denied":
-      return `${agentName}'s request was denied`;
-    case "request_created":
-      return amount
-        ? `${agentName}'s ${amount} request${vendor} requires approval`
-        : `${agentName} submitted a request${vendor}`;
-    case "request_expired":
-      return `${agentName}'s request expired`;
-    case "agent_registered":
-      return `Agent "${agentName}" was registered`;
-    case "agent_revoked":
-      return `Agent "${agentName}" was revoked`;
-    case "rule_created":
-      return `A new rule was added for ${agentName}`;
-    case "rule_deleted":
-      return `A rule was removed for ${agentName}`;
-    default:
-      return eventType.replace(/_/g, " ");
-  }
+  return "bg-slate-400";
 }
 
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
   const minutes = Math.floor(diff / 60000);
   if (minutes < 1) return "just now";
-  if (minutes < 60) return `${minutes} min ago`;
+  if (minutes < 60) return `${minutes}m ago`;
   const hours = Math.floor(minutes / 60);
   if (hours < 24) return `${hours}h ago`;
   const days = Math.floor(hours / 24);
   return `${days}d ago`;
 }
 
+function getAgentName(item: ActivityItem): string {
+  const withAgent = item as ActivityItem & { agent_name?: string };
+  if (withAgent.agent_name) return withAgent.agent_name;
+  const details = item.details ?? {};
+  if (typeof details.agent_name === "string" && details.agent_name) {
+    return details.agent_name;
+  }
+  return "";
+}
+
 export function ActivityFeed({ items, loading = false }: ActivityFeedProps) {
   if (loading) {
     return (
-      <div className="space-y-0">
+      <div className="relative pl-8 border-l-2 border-slate-200 dark:border-slate-700 ml-3 space-y-0">
         {[1, 2, 3, 4, 5].map((i) => (
-          <div key={i} className="flex gap-4 py-3 border-b border-border last:border-0">
-            <div className="flex flex-col items-center flex-shrink-0">
-              <Skeleton className="h-2.5 w-2.5 rounded-full mt-1.5" />
-            </div>
-            <div className="flex-1 flex items-start justify-between gap-2">
-              <Skeleton className="h-4 w-48" />
-              <Skeleton className="h-3 w-16 flex-shrink-0" />
+          <div key={i} className="relative pb-6">
+            <div className="absolute -left-9 top-1.5 w-3 h-3 rounded-full bg-slate-200 dark:bg-slate-700 skeleton-shimmer" />
+            <div className="space-y-1.5">
+              <div className="skeleton-shimmer h-4 w-64 rounded" />
+              <div className="skeleton-shimmer h-3 w-20 rounded" />
             </div>
           </div>
         ))}
@@ -117,28 +154,43 @@ export function ActivityFeed({ items, loading = false }: ActivityFeedProps) {
   }
 
   return (
-    <div className="space-y-0">
-      {items.map((item) => (
-        <div
-          key={item.id}
-          className="flex gap-4 py-3 border-b border-border last:border-0"
-        >
-          <div className="flex flex-col items-center flex-shrink-0">
+    <div className="relative border-l-2 border-slate-200 dark:border-slate-700 ml-3">
+      {items.map((item) => {
+        const sentence = buildSentence(item);
+        const agentName = getAgentName(item);
+        const dotColor = eventColor(item.event_type);
+
+        let displaySentence: React.ReactNode = sentence;
+        if (agentName && sentence.includes(agentName)) {
+          const parts = sentence.split(agentName);
+          displaySentence = (
+            <>
+              {parts[0]}
+              <span className="font-medium text-slate-900 dark:text-white">{agentName}</span>
+              {parts.slice(1).join(agentName)}
+            </>
+          );
+        }
+
+        return (
+          <div key={item.id} className="relative pl-8 pb-6">
             <div
               className={cn(
-                "h-2.5 w-2.5 rounded-full mt-1.5",
-                eventColor(item.event_type)
+                "absolute left-0 top-1.5 w-3 h-3 rounded-full -translate-x-1.5",
+                dotColor
               )}
             />
+            <div className="flex items-start justify-between gap-3">
+              <p className="text-sm text-slate-700 dark:text-slate-300 leading-snug">
+                {displaySentence}
+              </p>
+              <span className="text-xs text-slate-400 flex-shrink-0 mt-0.5">
+                {timeAgo(item.created_at)}
+              </span>
+            </div>
           </div>
-          <div className="flex-1 flex items-start justify-between gap-2 min-w-0">
-            <p className="text-sm leading-snug">{eventSentence(item)}</p>
-            <span className="text-xs text-muted-foreground/60 flex-shrink-0 mt-0.5">
-              {timeAgo(item.created_at)}
-            </span>
-          </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

@@ -3,7 +3,6 @@
 import useSWR from "swr";
 import { getRequests, getAgents } from "@/lib/api";
 import { PendingCard } from "@/components/pending-card";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { CheckCircle } from "lucide-react";
 
@@ -27,13 +26,21 @@ export default function PendingPage() {
     mutate((prev) => prev?.filter((r) => r.id !== id) ?? []);
   }
 
+  const count = requests?.length ?? 0;
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 page-enter">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Pending Requests</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white font-heading">
+            Pending Requests
+          </h1>
           <p className="text-muted-foreground text-sm mt-1">
-            Review and approve or deny agent requests
+            {isLoading
+              ? "Loading..."
+              : count > 0
+              ? `${count} request${count === 1 ? "" : "s"} awaiting your review`
+              : "Nothing to review"}
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={() => mutate()}>
@@ -51,13 +58,13 @@ export default function PendingPage() {
       )}
 
       {isLoading ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
-            <Skeleton key={i} className="h-52 rounded-lg" />
+        <div className="max-w-2xl mx-auto space-y-4">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="skeleton-shimmer rounded-xl h-52" />
           ))}
         </div>
       ) : requests && requests.length > 0 ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="max-w-2xl mx-auto space-y-4">
           {requests.map((req) => (
             <PendingCard
               key={req.id}
@@ -68,11 +75,13 @@ export default function PendingPage() {
           ))}
         </div>
       ) : (
-        <div className="rounded-lg border border-dashed border-border p-16 text-center">
-          <CheckCircle className="h-12 w-12 text-muted-foreground/40 mx-auto mb-4" />
-          <p className="text-base font-medium">No pending requests</p>
+        <div className="max-w-2xl mx-auto rounded-xl border border-dashed border-border p-16 text-center bg-white dark:bg-slate-800">
+          <CheckCircle className="h-12 w-12 text-emerald-500/60 mx-auto mb-4" />
+          <p className="text-base font-medium text-slate-900 dark:text-white">
+            All caught up! No pending requests.
+          </p>
           <p className="text-sm text-muted-foreground mt-1">
-            All clear — your agents are operating within their rules
+            Your agents are operating within their rules
           </p>
         </div>
       )}

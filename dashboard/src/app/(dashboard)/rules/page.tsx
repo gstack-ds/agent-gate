@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -46,27 +46,58 @@ const RULE_TYPES = [
   { value: "blocked_categories", label: "Blocked categories", hasList: true },
 ];
 
+const FALLBACK_TEMPLATES: RuleTemplate[] = [
+  {
+    name: "Conservative",
+    description: "Maximum protection — nothing auto-approves. Every request requires your review.",
+    rules: [
+      { rule_type: "require_approval_above", value: { amount: 0 } },
+      { rule_type: "max_per_day", value: { amount: 50 } },
+    ],
+  },
+  {
+    name: "Moderate",
+    description: "Approve small purchases automatically, flag large ones for review.",
+    rules: [
+      { rule_type: "auto_approve_below", value: { amount: 25 } },
+      { rule_type: "require_approval_above", value: { amount: 100 } },
+      { rule_type: "max_per_day", value: { amount: 200 } },
+    ],
+  },
+  {
+    name: "Permissive",
+    description: "Higher auto-approve threshold with a daily spending cap.",
+    rules: [
+      { rule_type: "auto_approve_below", value: { amount: 100 } },
+      { rule_type: "max_per_day", value: { amount: 500 } },
+    ],
+  },
+];
+
 const TEMPLATE_STYLES: Record<
   string,
-  { border: string; bg: string; badge: string; badgeText: string }
+  { border: string; bg: string; badge: string; badgeText: string; applyBtn: string }
 > = {
   conservative: {
-    border: "border-gray-200 dark:border-gray-700",
-    bg: "bg-gray-50 dark:bg-gray-900/40",
-    badge: "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300",
+    border: "border-emerald-200 dark:border-emerald-800",
+    bg: "bg-emerald-50 dark:bg-emerald-950/30",
+    badge: "bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300",
     badgeText: "Conservative",
+    applyBtn: "border-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300",
   },
   moderate: {
-    border: "border-blue-200 dark:border-blue-800",
-    bg: "bg-blue-50 dark:bg-blue-950/30",
-    badge: "bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300",
+    border: "border-amber-200 dark:border-amber-800",
+    bg: "bg-amber-50 dark:bg-amber-950/30",
+    badge: "bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300",
     badgeText: "Moderate",
+    applyBtn: "border-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/30 text-amber-700 dark:text-amber-300",
   },
   permissive: {
-    border: "border-green-200 dark:border-green-800",
-    bg: "bg-green-50 dark:bg-green-950/30",
-    badge: "bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300",
+    border: "border-rose-200 dark:border-rose-800",
+    bg: "bg-rose-50 dark:bg-rose-950/30",
+    badge: "bg-rose-100 dark:bg-rose-900/50 text-rose-700 dark:text-rose-300",
     badgeText: "Permissive",
+    applyBtn: "border-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-rose-700 dark:text-rose-300",
   },
 };
 
@@ -75,6 +106,21 @@ function getTemplateStyle(name: string) {
   if (key.includes("conservative")) return TEMPLATE_STYLES.conservative;
   if (key.includes("permissive")) return TEMPLATE_STYLES.permissive;
   return TEMPLATE_STYLES.moderate;
+}
+
+function ruleTypeSummary(ruleType: string, value: Record<string, unknown>): string {
+  const labels: Record<string, string> = {
+    max_per_transaction: "Max/transaction",
+    max_per_day: "Max/day",
+    max_per_month: "Max/month",
+    require_approval_above: "Approval above",
+    auto_approve_below: "Auto-approve below",
+  };
+  const label = labels[ruleType] || ruleType.replace(/_/g, " ");
+  if (value.amount !== undefined) {
+    return `${label}: $${value.amount}`;
+  }
+  return label;
 }
 
 export default function RulesPage() {
@@ -90,10 +136,15 @@ export default function RulesPage() {
     () => getAgentRules(selectedAgentId)
   );
 
-  const { data: templates, isLoading: templatesLoading } = useSWR(
+  const { data: fetchedTemplates } = useSWR(
     selectedAgentId ? `templates-${selectedAgentId}` : null,
-    () => getRuleTemplates(selectedAgentId)
+    () => getRuleTemplates(selectedAgentId).catch(() => null)
   );
+
+  const templates: RuleTemplate[] =
+    fetchedTemplates && fetchedTemplates.length > 0
+      ? fetchedTemplates
+      : FALLBACK_TEMPLATES;
 
   const [addOpen, setAddOpen] = useState(false);
   const [ruleType, setRuleType] = useState("");
@@ -113,8 +164,8 @@ export default function RulesPage() {
     let value: Record<string, unknown> = {};
     if (selectedRuleType?.hasAmount) {
       const amt = parseFloat(amountValue);
-      if (isNaN(amt) || amt <= 0) {
-        toast.error("Enter a valid positive amount");
+      if (isNaN(amt) || amt < 0) {
+        toast.error("Enter a valid amount");
         setAdding(false);
         return;
       }
@@ -149,7 +200,10 @@ export default function RulesPage() {
   }
 
   async function handleApplyTemplate(template: RuleTemplate) {
-    if (!selectedAgentId) return;
+    if (!selectedAgentId) {
+      toast.warning("Select an agent first");
+      return;
+    }
     setApplyingTemplate(template.name);
     try {
       for (const rule of template.rules) {
@@ -177,9 +231,84 @@ export default function RulesPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Rules</h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white font-heading">
+          Rules
+        </h1>
         <p className="text-muted-foreground text-sm mt-1">
           Configure auto-approval and spending limits per agent
+        </p>
+      </div>
+
+      {/* Quick Setup Templates — always visible */}
+      <div>
+        <h2 className="text-base font-semibold text-slate-900 dark:text-white mb-3 font-heading">
+          Quick Setup Templates
+        </h2>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {templates.map((tmpl) => {
+            const style = getTemplateStyle(tmpl.name);
+            const isApplying = applyingTemplate === tmpl.name;
+            return (
+              <div
+                key={tmpl.name}
+                className={cn(
+                  "rounded-xl border p-4 flex flex-col gap-3 shadow-sm hover:shadow-md transition-shadow duration-150",
+                  style.border,
+                  style.bg
+                )}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <span
+                    className={cn(
+                      "text-xs font-semibold px-2 py-0.5 rounded-full",
+                      style.badge
+                    )}
+                  >
+                    {style.badgeText}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {tmpl.rules.length} rules
+                  </span>
+                </div>
+                <div>
+                  <div className="font-semibold text-sm text-slate-900 dark:text-white">
+                    {tmpl.name}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {tmpl.description}
+                  </p>
+                </div>
+                <ul className="space-y-1">
+                  {tmpl.rules.map((r, i) => (
+                    <li key={i} className="text-xs text-muted-foreground font-mono">
+                      • {ruleTypeSummary(r.rule_type, r.value)}
+                    </li>
+                  ))}
+                </ul>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className={cn("mt-auto transition-colors duration-150", style.applyBtn)}
+                  onClick={() => handleApplyTemplate(tmpl)}
+                  disabled={applyingTemplate !== null}
+                  title={!selectedAgentId ? "Select an agent first" : undefined}
+                >
+                  {isApplying ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                      Applying...
+                    </>
+                  ) : (
+                    "Apply"
+                  )}
+                </Button>
+              </div>
+            );
+          })}
+        </div>
+        <p className="text-xs text-muted-foreground mt-2">
+          Templates add rules to the existing set — they don&apos;t replace current rules.
+          {!selectedAgentId && " Select an agent below to apply a template."}
         </p>
       </div>
 
@@ -211,7 +340,7 @@ export default function RulesPage() {
                               </span>
                             )}
                           </span>
-                          <span className="text-xs text-muted-foreground font-mono">
+                          <span className="text-xs text-slate-400 font-mono">
                             {agent.id}
                           </span>
                         </div>
@@ -235,113 +364,40 @@ export default function RulesPage() {
       </Card>
 
       {selectedAgentId && (
-        <>
-          {/* Templates row */}
-          {templatesLoading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div>
+          <h2 className="text-base font-semibold text-slate-900 dark:text-white mb-3 font-heading">
+            Rules for {selectedAgent?.name}
+          </h2>
+
+          {rulesLoading ? (
+            <div className="space-y-2">
               {[1, 2, 3].map((i) => (
-                <Skeleton key={i} className="h-32 rounded-lg" />
+                <Skeleton key={i} className="h-16 rounded-lg" />
               ))}
             </div>
-          ) : templates && templates.length > 0 ? (
-            <div>
-              <h2 className="text-base font-semibold mb-3">Quick templates</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                {templates.map((tmpl) => {
-                  const style = getTemplateStyle(tmpl.name);
-                  const isApplying = applyingTemplate === tmpl.name;
-                  return (
-                    <div
-                      key={tmpl.name}
-                      className={cn(
-                        "rounded-lg border p-4 flex flex-col gap-3 shadow-sm hover:shadow-md transition-shadow",
-                        style.border,
-                        style.bg
-                      )}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <span
-                          className={cn(
-                            "text-xs font-semibold px-2 py-0.5 rounded-full",
-                            style.badge
-                          )}
-                        >
-                          {style.badgeText}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          {tmpl.rules.length} rules
-                        </span>
-                      </div>
-                      <div>
-                        <div className="font-semibold text-sm">{tmpl.name}</div>
-                        <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                          {tmpl.description}
-                        </p>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="mt-auto transition-colors duration-150"
-                        onClick={() => handleApplyTemplate(tmpl)}
-                        disabled={applyingTemplate !== null}
-                      >
-                        {isApplying ? (
-                          <>
-                            <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
-                            Applying...
-                          </>
-                        ) : (
-                          "Apply"
-                        )}
-                      </Button>
-                    </div>
-                  );
-                })}
-              </div>
-              <p className="text-xs text-muted-foreground mt-2">
-                Templates add rules to the existing set — they don&apos;t
-                replace current rules.
-              </p>
+          ) : rules && rules.length > 0 ? (
+            <div className="space-y-2">
+              {rules.map((rule) => (
+                <RuleRow key={rule.id} rule={rule} onDeleted={handleRuleDeleted} />
+              ))}
             </div>
-          ) : null}
-
-          {/* Rules list */}
-          <div>
-            <h2 className="text-base font-semibold mb-3">
-              Rules for {selectedAgent?.name}
-            </h2>
-
-            {rulesLoading ? (
-              <div className="space-y-2">
-                {[1, 2, 3].map((i) => (
-                  <Skeleton key={i} className="h-16 rounded-lg" />
-                ))}
+          ) : (
+            <div className="rounded-lg border border-dashed border-border p-10 text-center">
+              <Shield className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
+              <p className="text-sm font-medium">No rules configured</p>
+              <p className="text-xs text-muted-foreground mt-1 mb-4">
+                Apply a template above or add rules manually.
+              </p>
+              <div className="flex items-start gap-2 rounded-lg bg-amber-50 dark:bg-amber-950/30 p-3 text-sm text-amber-700 dark:text-amber-400 text-left max-w-sm mx-auto">
+                <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                <span>
+                  <strong>All requests require your approval</strong> until you
+                  set rules.
+                </span>
               </div>
-            ) : rules && rules.length > 0 ? (
-              <div className="space-y-2">
-                {rules.map((rule) => (
-                  <RuleRow key={rule.id} rule={rule} onDeleted={handleRuleDeleted} />
-                ))}
-              </div>
-            ) : (
-              <div className="rounded-lg border border-dashed border-border p-10 text-center">
-                <Shield className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
-                <p className="text-sm font-medium">No rules configured</p>
-                <p className="text-xs text-muted-foreground mt-1 mb-4">
-                  All requests require manual approval until you add rules.
-                </p>
-                <div className="flex items-start gap-2 rounded-lg bg-amber-50 dark:bg-amber-950/30 p-3 text-sm text-amber-700 dark:text-amber-400 text-left max-w-sm mx-auto">
-                  <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
-                  <span>
-                    <strong>All requests require your approval</strong> until you
-                    set rules. Add rules or apply a template to enable
-                    auto-approval.
-                  </span>
-                </div>
-              </div>
-            )}
-          </div>
-        </>
+            </div>
+          )}
+        </div>
       )}
 
       {!selectedAgentId && !agentsLoading && (
@@ -387,7 +443,7 @@ export default function RulesPage() {
                   <Input
                     id="amount"
                     type="number"
-                    min="0.01"
+                    min="0"
                     step="0.01"
                     placeholder="e.g. 50.00"
                     value={amountValue}

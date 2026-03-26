@@ -36,6 +36,14 @@ function formatAmount(amount: number | null, currency: string): string {
   }).format(amount);
 }
 
+function getInitials(name: string): string {
+  return name
+    .split(/\s+/)
+    .map((w) => w[0]?.toUpperCase() ?? "")
+    .slice(0, 2)
+    .join("");
+}
+
 export function PendingCard({ request, agentName, onResolved }: PendingCardProps) {
   const [countdown, setCountdown] = useState(() =>
     formatCountdown(request.expires_at)
@@ -78,17 +86,29 @@ export function PendingCard({ request, agentName, onResolved }: PendingCardProps
   const isUrgent = request.expires_at !== null && remaining < 60 * 1000;
   const isWarningSoon = request.expires_at !== null && remaining < 5 * 60 * 1000;
 
+  const displayName = agentName || request.agent_name || "Unknown Agent";
+  const initials = getInitials(displayName);
+
   return (
-    <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/20 flex flex-col shadow-sm hover:shadow-md transition-shadow">
+    <div className="rounded-xl border-l-4 border-amber-400 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 bg-amber-50/50 dark:bg-amber-900/10 flex flex-col shadow-sm hover:shadow-md transition-shadow duration-150">
       {/* Header */}
-      <div className="px-4 pt-4 pb-3 flex items-start justify-between gap-2">
-        <div>
-          <div className="font-bold text-sm">{agentName || "Unknown Agent"}</div>
-          <div className="text-xs text-muted-foreground mt-0.5">{request.action}</div>
+      <div className="px-4 pt-4 pb-3 flex items-start justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="h-10 w-10 rounded-full bg-indigo-600 flex items-center justify-center flex-shrink-0">
+            <span className="text-white font-bold text-sm">{initials}</span>
+          </div>
+          <div className="min-w-0">
+            <div className="font-semibold text-sm text-slate-900 dark:text-white truncate">
+              {displayName}
+            </div>
+            <div className="text-xs text-muted-foreground mt-0.5 truncate">
+              {request.action}
+            </div>
+          </div>
         </div>
         <div className="flex flex-col items-end gap-1 flex-shrink-0">
           {request.amount !== null && (
-            <span className="text-xl font-bold">
+            <span className="text-xl font-bold text-slate-900 dark:text-white">
               {formatAmount(request.amount, request.currency)}
             </span>
           )}
@@ -107,7 +127,7 @@ export function PendingCard({ request, agentName, onResolved }: PendingCardProps
             {request.vendor && (
               <>
                 <span className="text-muted-foreground">Vendor</span>
-                <span className="font-medium">{request.vendor}</span>
+                <span className="font-medium text-slate-900 dark:text-white">{request.vendor}</span>
               </>
             )}
             {request.description && (
@@ -129,12 +149,12 @@ export function PendingCard({ request, agentName, onResolved }: PendingCardProps
         {countdown && (
           <div
             className={cn(
-              "flex items-center gap-1.5 text-xs font-semibold",
+              "inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded",
               isUrgent
-                ? "text-red-600 dark:text-red-400"
+                ? "bg-rose-100 text-rose-700 dark:bg-rose-900/50 dark:text-rose-300"
                 : isWarningSoon
-                ? "text-amber-600 dark:text-amber-400"
-                : "text-muted-foreground"
+                ? "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300"
+                : "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300"
             )}
           >
             <Clock className="h-3.5 w-3.5" />
@@ -145,28 +165,23 @@ export function PendingCard({ request, agentName, onResolved }: PendingCardProps
 
       {/* Footer buttons */}
       <div className="px-4 pb-4 flex gap-2">
-        <button
-          className={cn(
-            "flex-1 flex items-center justify-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-colors duration-150",
-            "bg-green-600 hover:bg-green-700 text-white disabled:opacity-60 disabled:cursor-not-allowed"
-          )}
-          onClick={handleApprove}
-          disabled={loading !== null}
-        >
-          {loading === "approve" && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-          {loading === "approve" ? "Approving..." : "Approve"}
-        </button>
-        <button
-          className={cn(
-            "flex-1 flex items-center justify-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-colors duration-150",
-            "bg-red-600 hover:bg-red-700 text-white disabled:opacity-60 disabled:cursor-not-allowed"
-          )}
+        <Button
+          variant="outline"
+          className="flex-1 border-rose-300 text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:border-rose-700 dark:text-rose-400 dark:hover:bg-rose-950/30 transition-colors duration-150"
           onClick={handleDeny}
           disabled={loading !== null}
         >
-          {loading === "deny" && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+          {loading === "deny" && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />}
           {loading === "deny" ? "Denying..." : "Deny"}
-        </button>
+        </Button>
+        <Button
+          className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white transition-colors duration-150"
+          onClick={handleApprove}
+          disabled={loading !== null}
+        >
+          {loading === "approve" && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />}
+          {loading === "approve" ? "Approving..." : "Approve"}
+        </Button>
       </div>
     </div>
   );

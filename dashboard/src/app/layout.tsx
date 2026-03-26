@@ -1,17 +1,25 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { DM_Sans, IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const dmSans = DM_Sans({
   subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  variable: "--font-dm-sans",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const ibmPlexSans = IBM_Plex_Sans({
   subsets: ["latin"],
+  weight: ["400", "500"],
+  variable: "--font-ibm-plex-sans",
+});
+
+const ibmPlexMono = IBM_Plex_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500"],
+  variable: "--font-ibm-plex-mono",
 });
 
 export const metadata: Metadata = {
@@ -28,9 +36,9 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${geistSans.variable} ${geistMono.variable}`}
+      className={`${dmSans.variable} ${ibmPlexSans.variable} ${ibmPlexMono.variable}`}
     >
-      <body className="min-h-screen bg-background font-sans antialiased">
+      <body className="min-h-screen bg-background antialiased">
         <ThemeProvider
           attribute="class"
           defaultTheme="system"

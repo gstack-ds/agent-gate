@@ -7,7 +7,6 @@ import { AgentCard } from "@/components/agent-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
@@ -16,9 +15,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Plus, Bot, Copy, Check, AlertTriangle } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import Link from "next/link";
 
 export default function AgentsPage() {
   const {
@@ -34,10 +34,10 @@ export default function AgentsPage() {
 
   const [newApiKey, setNewApiKey] = useState<string | null>(null);
   const [newAgentName, setNewAgentName] = useState<string>("");
+  const [newAgentId, setNewAgentId] = useState<string>("");
   const [apiKeyCopied, setApiKeyCopied] = useState(false);
   const [keyDialogOpen, setKeyDialogOpen] = useState(false);
 
-  // Per-agent rule counts — fetched once per page load
   const [ruleCounts, setRuleCounts] = useState<Record<string, number>>({});
 
   useEffect(() => {
@@ -68,11 +68,11 @@ export default function AgentsPage() {
       setRegisterOpen(false);
       setNewApiKey(agent.api_key);
       setNewAgentName(agent.name);
+      setNewAgentId(agent.id);
       setApiKeyCopied(false);
       setKeyDialogOpen(true);
       mutate();
 
-      // Auto-create default rules
       try {
         await Promise.all([
           createRule(agent.id, "require_approval_above", { amount: 25 }),
@@ -81,7 +81,6 @@ export default function AgentsPage() {
         toast.success(
           "Default safety rules applied — all purchases over $25 require your approval."
         );
-        // Update rule counts for the new agent
         setRuleCounts((prev) => ({ ...prev, [agent.id]: 2 }));
       } catch {
         toast.warning(
@@ -115,10 +114,12 @@ export default function AgentsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 page-enter">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Agents</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white font-heading">
+            Agents
+          </h1>
           <p className="text-muted-foreground text-sm mt-1">
             Register and manage your AI agents
           </p>
@@ -128,7 +129,7 @@ export default function AgentsPage() {
           className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white transition-colors duration-150"
         >
           <Plus className="h-4 w-4" />
-          Register agent
+          Register Agent
         </Button>
       </div>
 
@@ -144,7 +145,7 @@ export default function AgentsPage() {
       {isLoading ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-28 rounded-lg" />
+            <div key={i} className="skeleton-shimmer rounded-xl h-40" />
           ))}
         </div>
       ) : agents && agents.length > 0 ? (
@@ -159,10 +160,12 @@ export default function AgentsPage() {
           ))}
         </div>
       ) : (
-        <Card>
+        <Card className="border-slate-200 dark:border-slate-700">
           <CardContent className="flex flex-col items-center py-16">
             <Bot className="h-12 w-12 text-muted-foreground/40 mb-4" />
-            <p className="text-base font-medium">No agents yet</p>
+            <p className="text-base font-medium text-slate-900 dark:text-white">
+              No agents yet
+            </p>
             <p className="text-sm text-muted-foreground mt-1 mb-4 text-center max-w-xs">
               Register your first agent to get started. You&apos;ll receive an
               API key to use in your agent code.
@@ -172,7 +175,7 @@ export default function AgentsPage() {
               className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white transition-colors duration-150"
             >
               <Plus className="h-4 w-4" />
-              Register agent
+              Register Agent
             </Button>
           </CardContent>
         </Card>
@@ -229,13 +232,12 @@ export default function AgentsPage() {
           <DialogHeader>
             <DialogTitle>Agent registered: {newAgentName}</DialogTitle>
             <DialogDescription>
-              Your API key is shown below. Copy it now — it will never be shown
-              again.
+              Copy your API key now — it will never be shown again.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
-            <div className="rounded-lg bg-muted p-4 font-mono text-sm break-all select-all">
+            <div className="rounded-lg bg-slate-900 text-emerald-400 font-mono text-sm break-all select-all p-4">
               {newApiKey}
             </div>
             <Button
@@ -245,7 +247,7 @@ export default function AgentsPage() {
             >
               {apiKeyCopied ? (
                 <>
-                  <Check className="h-4 w-4 text-green-500" />
+                  <Check className="h-4 w-4 text-emerald-500" />
                   Copied!
                 </>
               ) : (
@@ -259,13 +261,25 @@ export default function AgentsPage() {
             <div className="flex items-start gap-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 p-3 text-sm text-amber-700 dark:text-amber-400">
               <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
               <span>
-                Default safety rules have been applied. Purchases over $25 will
-                require your approval. Head to the Rules page to customize.
+                Store this key now — it will never be shown again. Default safety rules have been applied (approval required above $25).
               </span>
             </div>
+
+            <p className="text-xs text-muted-foreground">
+              All requests require your approval until you set rules.
+            </p>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="gap-2">
+            <Link href={`/rules?agent=${newAgentId}`}>
+              <Button
+                variant="outline"
+                onClick={() => setKeyDialogOpen(false)}
+                className="text-indigo-600 border-indigo-200 hover:bg-indigo-50 dark:text-indigo-400 dark:border-indigo-800"
+              >
+                View Rules
+              </Button>
+            </Link>
             <Button
               className="bg-indigo-600 hover:bg-indigo-700 text-white transition-colors duration-150"
               onClick={() => setKeyDialogOpen(false)}

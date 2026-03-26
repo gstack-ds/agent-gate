@@ -9,7 +9,7 @@ import {
   LayoutDashboard,
   Clock,
   Bot,
-  Settings,
+  Settings2,
   Activity,
   LogOut,
   Menu,
@@ -22,13 +22,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
 import useSWR from "swr";
-import { getRequests } from "@/lib/api";
+import { getDashboardStats } from "@/lib/api";
 
 const navItems = [
   { href: "/", label: "Overview", icon: LayoutDashboard },
-  { href: "/pending", label: "Pending", icon: Clock },
+  { href: "/pending", label: "Pending Requests", icon: Clock },
   { href: "/agents", label: "Agents", icon: Bot },
-  { href: "/rules", label: "Rules", icon: Settings },
+  { href: "/rules", label: "Rules", icon: Settings2 },
   { href: "/activity", label: "Activity", icon: Activity },
 ];
 
@@ -42,32 +42,30 @@ function ThemeToggle() {
 
   if (!mounted) {
     return (
-      <Button variant="ghost" size="sm" className="w-full justify-start gap-3 text-muted-foreground">
+      <button className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-slate-800 transition-colors duration-150">
         <Monitor className="h-4 w-4" />
         Theme
-      </Button>
+      </button>
     );
   }
 
   const cycleTheme = () => {
-    if (theme === "light") setTheme("dark");
-    else if (theme === "dark") setTheme("system");
-    else setTheme("light");
+    if (theme === "system") setTheme("light");
+    else if (theme === "light") setTheme("dark");
+    else setTheme("system");
   };
 
   const Icon = theme === "light" ? Sun : theme === "dark" ? Moon : Monitor;
   const label = theme === "light" ? "Light" : theme === "dark" ? "Dark" : "System";
 
   return (
-    <Button
-      variant="ghost"
-      size="sm"
-      className="w-full justify-start gap-3 text-muted-foreground hover:text-foreground transition-colors duration-150"
+    <button
+      className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-slate-800 transition-colors duration-150"
       onClick={cycleTheme}
     >
       <Icon className="h-4 w-4" />
       {label} mode
-    </Button>
+    </button>
   );
 }
 
@@ -76,12 +74,10 @@ export function Sidebar() {
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const { data: pendingRequests } = useSWR(
-    "pending-requests",
-    () => getRequests("pending"),
-    { refreshInterval: 10000 }
-  );
-  const pendingCount = pendingRequests?.length ?? 0;
+  const { data: stats } = useSWR("dashboard-stats-sidebar", getDashboardStats, {
+    refreshInterval: 15000,
+  });
+  const pendingCount = stats?.pending ?? 0;
 
   async function handleSignOut() {
     const supabase = createClient();
@@ -93,14 +89,14 @@ export function Sidebar() {
   const NavContent = () => (
     <>
       {/* Logo */}
-      <div className="flex items-center gap-2.5 px-4 py-5 border-b border-border">
-        <Shield className="h-6 w-6 text-indigo-600 dark:text-indigo-400 flex-shrink-0" />
-        <span className="font-semibold text-lg tracking-tight">AgentGate</span>
+      <div className="flex items-center gap-2.5 px-4 py-5 border-b border-slate-800">
+        <Shield className="h-6 w-6 text-indigo-400 flex-shrink-0" />
+        <span className="font-semibold text-lg text-white tracking-tight">AgentGate</span>
       </div>
 
       {/* Nav */}
       <nav className="flex-1 px-3 py-4">
-        <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60 px-3 mb-2">
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 px-3 mb-2">
           Navigation
         </p>
         <div className="space-y-0.5">
@@ -117,7 +113,7 @@ export function Sidebar() {
                   "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors duration-150",
                   isActive
                     ? "bg-indigo-600 text-white"
-                    : "text-muted-foreground hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-foreground"
+                    : "text-slate-300 hover:bg-slate-800 hover:text-white"
                 )}
               >
                 <Icon className="h-4 w-4 flex-shrink-0" />
@@ -141,17 +137,20 @@ export function Sidebar() {
       </nav>
 
       {/* Footer */}
-      <div className="px-3 py-3 border-t border-border space-y-1">
+      <div className="px-3 py-3 border-t border-slate-800 space-y-1">
         <ThemeToggle />
-        <Button
-          variant="ghost"
-          size="sm"
-          className="w-full justify-start gap-3 text-muted-foreground hover:text-foreground transition-colors duration-150"
+        <div className="px-3 py-2">
+          <span className="bg-slate-800 text-slate-400 text-xs px-3 py-1 rounded inline-block">
+            Free plan
+          </span>
+        </div>
+        <button
+          className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-slate-800 transition-colors duration-150"
           onClick={handleSignOut}
         >
           <LogOut className="h-4 w-4" />
           Sign out
-        </Button>
+        </button>
       </div>
     </>
   );
@@ -159,19 +158,20 @@ export function Sidebar() {
   return (
     <>
       {/* Desktop sidebar */}
-      <aside className="hidden md:flex flex-col w-60 border-r border-border bg-card h-screen sticky top-0">
+      <aside className="hidden md:flex flex-col w-60 h-screen sticky top-0 bg-slate-900">
         <NavContent />
       </aside>
 
       {/* Mobile header */}
-      <div className="md:hidden fixed top-0 left-0 right-0 z-40 flex items-center justify-between px-4 py-3 bg-card border-b border-border">
+      <div className="md:hidden fixed top-0 left-0 right-0 z-40 flex items-center justify-between px-4 py-3 bg-slate-900 border-b border-slate-800">
         <div className="flex items-center gap-2">
-          <Shield className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
-          <span className="font-semibold">AgentGate</span>
+          <Shield className="h-5 w-5 text-indigo-400" />
+          <span className="font-semibold text-white">AgentGate</span>
         </div>
         <Button
           variant="ghost"
           size="icon"
+          className="text-slate-300 hover:text-white hover:bg-slate-800"
           onClick={() => setMobileOpen(!mobileOpen)}
         >
           {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
@@ -189,7 +189,7 @@ export function Sidebar() {
       {/* Mobile drawer */}
       <aside
         className={cn(
-          "md:hidden fixed top-0 left-0 z-40 flex flex-col w-64 h-full bg-card border-r border-border transition-transform duration-200",
+          "md:hidden fixed top-0 left-0 z-40 flex flex-col w-64 h-full bg-slate-900 border-r border-slate-800 transition-transform duration-200",
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
