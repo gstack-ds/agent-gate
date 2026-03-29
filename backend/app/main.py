@@ -12,6 +12,7 @@ from app.api.authorize import router as authorize_router
 from app.api.dashboard import router as dashboard_router
 from app.api.requests import router as requests_router
 from app.api.rules import router as rules_router
+from app.api.usage import router as usage_router
 from app.mcp_server import mcp
 from app.services import expiration
 
@@ -72,6 +73,7 @@ app.include_router(agents_router, prefix="/v1", tags=["agents"])
 app.include_router(rules_router, prefix="/v1", tags=["rules"])
 app.include_router(requests_router, prefix="/v1", tags=["requests"])
 app.include_router(dashboard_router, prefix="/v1", tags=["dashboard"])
+app.include_router(usage_router, prefix="/v1", tags=["usage"])
 
 
 @app.get("/health", tags=["meta"])

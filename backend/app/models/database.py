@@ -36,6 +36,7 @@ class User(Base):
     notification_preferences: Mapped[dict] = mapped_column(
         JSON, server_default=text("""'{"email": true, "sms": false}'::jsonb""")
     )
+    plan: Mapped[str] = mapped_column(Text, server_default=text("'free'"), default="free")
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True), server_default=text("NOW()")
     )

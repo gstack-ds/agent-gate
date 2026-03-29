@@ -32,8 +32,16 @@ def _make_db_agent(mock_user, name="New Agent") -> Agent:
 # POST /v1/agents
 # ---------------------------------------------------------------------------
 
+def _mock_count_result(n: int = 0) -> MagicMock:
+    """Mock for SELECT COUNT — active agent count check."""
+    m = MagicMock()
+    m.scalar.return_value = n
+    return m
+
+
 async def test_create_agent_returns_201(user_client: AsyncClient, mock_user, mock_db):
     saved_agent = _make_db_agent(mock_user)
+    mock_db.execute = AsyncMock(return_value=_mock_count_result(0))
     mock_db.refresh = AsyncMock(side_effect=lambda obj: None)
 
     with patch("app.api.agents.Agent", return_value=saved_agent):
@@ -50,6 +58,7 @@ async def test_create_agent_returns_201(user_client: AsyncClient, mock_user, moc
 
 async def test_create_agent_api_key_format(user_client: AsyncClient, mock_user, mock_db):
     saved_agent = _make_db_agent(mock_user)
+    mock_db.execute = AsyncMock(return_value=_mock_count_result(0))
     mock_db.refresh = AsyncMock(side_effect=lambda obj: None)
 
     with patch("app.api.agents.Agent", return_value=saved_agent):
@@ -63,6 +72,7 @@ async def test_create_agent_api_key_format(user_client: AsyncClient, mock_user, 
 async def test_create_agent_key_not_stored_in_plaintext(user_client: AsyncClient, mock_user, mock_db):
     """The raw API key should not equal the stored hash."""
     saved_agent = _make_db_agent(mock_user)
+    mock_db.execute = AsyncMock(return_value=_mock_count_result(0))
     mock_db.refresh = AsyncMock(side_effect=lambda obj: None)
 
     with patch("app.api.agents.Agent", return_value=saved_agent):

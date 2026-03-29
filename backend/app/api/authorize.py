@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Response, status
 from sqlalchemy import select
@@ -10,12 +11,15 @@ from app.database import get_db
 from app.middleware.auth import AgentDep
 from app.models.database import AuthorizationRequest, Rule, User
 from app.models.schemas import AuthorizeRequest, AuthorizeResponse
+from app.plans import PLAN_LIMITS, UPGRADE_URL, get_next_plan
 from app.services import audit, notification, rule_engine, token_service
+from app.services import usage as usage_service
 from app.services.rate_limiter import authorize_limiter
 
 router = APIRouter()
 
 _PENDING_EXPIRY_SECONDS = 300  # 5 minutes for human to respond
+_HARD_CEILING = Decimal("10000")  # auto-approvals above this are always forced to pending
 
 
 @router.post(
@@ -38,6 +42,39 @@ async def create_authorization_request(
     # Enforce per-agent rate limit
     authorize_limiter.check(str(agent.id))
 
+    # Load the user (needed for plan limits and notifications)
+    user_result = await db.execute(select(User).where(User.id == agent.user_id))
+    user = user_result.scalar_one_or_none()
+
+    # Enforce monthly request limit
+    plan_warning: str | None = None
+    if user is not None:
+        plan = getattr(user, "plan", "free") or "free"
+        limit = PLAN_LIMITS.get(plan, PLAN_LIMITS["free"])["max_requests_per_month"]
+        if limit is not None:
+            count = await usage_service.get_requests_this_month(user.id, db)
+            hard_cap = int(limit * 1.1)
+            if count >= hard_cap:
+                next_plan = get_next_plan(plan)
+                next_limits = PLAN_LIMITS.get(next_plan or "", {})
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail={
+                        "error": "request_limit_reached",
+                        "current_plan": plan,
+                        "requests_used": count,
+                        "requests_limit": limit,
+                        "upgrade_to": next_plan,
+                        "upgrade_limit": next_limits.get("max_requests_per_month"),
+                        "upgrade_url": UPGRADE_URL,
+                    },
+                )
+            elif count >= limit:
+                plan_warning = (
+                    f"You are over your monthly limit. "
+                    f"Requests will be blocked at {hard_cap}/{limit}."
+                )
+
     # Load the agent's active rules
     rules_result = await db.execute(
         select(Rule).where(Rule.agent_id == agent.id, Rule.is_active.is_(True))
@@ -46,6 +83,11 @@ async def create_authorization_request(
 
     # Evaluate against rules
     result = await rule_engine.evaluate(body, agent.id, rules, db)
+
+    # Hard ceiling: never auto-approve transactions above $10,000 regardless of rules
+    decision = result.decision
+    if decision == "auto_approved" and body.amount is not None and body.amount > _HARD_CEILING:
+        decision = "pending"
 
     now = datetime.now(timezone.utc)
     req = AuthorizationRequest(
@@ -57,7 +99,7 @@ async def create_authorization_request(
         vendor=body.vendor,
         category=body.category,
         description=body.description,
-        status=result.decision,
+        status=decision,
         rule_evaluation={
             "decision": result.decision,
             "reason": result.reason,
@@ -67,13 +109,13 @@ async def create_authorization_request(
         created_at=now,
     )
 
-    if result.decision == "auto_approved":
+    if decision == "auto_approved":
         req.approval_token = token_service.generate_approval_token(req.id, agent.id, body.amount)
         req.resolved_by = "system"
         req.resolved_at = now
         if response is not None:
             response.status_code = status.HTTP_200_OK
-    elif result.decision == "denied":
+    elif decision == "denied":
         req.resolved_by = "system"
         req.resolved_at = now
         if response is not None:
@@ -84,9 +126,9 @@ async def create_authorization_request(
             response.status_code = status.HTTP_202_ACCEPTED
 
     await audit.log_event(db, "request_created", agent_id=agent.id, request_id=req.id)
-    if result.decision == "auto_approved":
+    if decision == "auto_approved":
         await audit.log_event(db, "auto_approved", agent_id=agent.id, request_id=req.id)
-    elif result.decision == "denied":
+    elif decision == "denied":
         await audit.log_event(
             db,
             "request_denied_by_rule",
@@ -101,23 +143,22 @@ async def create_authorization_request(
     await db.commit()
     await db.refresh(req)
 
-    if result.decision == "pending" and settings.RESEND_API_KEY:
-        user_row = (
-            await db.execute(select(User).where(User.id == agent.user_id))
-        ).scalar_one_or_none()
-        if user_row:
-            background_tasks.add_task(
-                notification.send_pending_notification,
-                user_email=user_row.email,
-                agent_name=agent.name,
-                request_id=str(req.id),
-                action=body.action,
-                amount=body.amount,
-                vendor=body.vendor,
-                description=body.description,
-            )
+    if decision == "pending" and settings.RESEND_API_KEY and user is not None:
+        background_tasks.add_task(
+            notification.send_pending_notification,
+            user_email=user.email,
+            agent_name=agent.name,
+            request_id=str(req.id),
+            action=body.action,
+            amount=body.amount,
+            vendor=body.vendor,
+            description=body.description,
+        )
 
-    return AuthorizeResponse.model_validate(req)
+    resp = AuthorizeResponse.model_validate(req)
+    if plan_warning:
+        resp.plan_warning = plan_warning
+    return resp
 
 
 @router.get(

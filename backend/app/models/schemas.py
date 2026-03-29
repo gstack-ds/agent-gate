@@ -122,6 +122,7 @@ class AuthorizeResponse(BaseModel):
     rule_evaluation: Optional[dict[str, Any]] = None
     expires_at: Optional[datetime] = None
     created_at: datetime
+    plan_warning: Optional[str] = None  # set when usage is in overage grace period
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -170,3 +171,13 @@ class ActivityItem(BaseModel):
     vendor: Optional[str]
     description: Optional[str]
     created_at: datetime
+
+
+# --- Usage schemas ---
+
+class UsageResponse(BaseModel):
+    plan: str
+    requests_this_month: int
+    requests_limit: Optional[int]  # None = unlimited
+    agents_active: int
+    agents_limit: Optional[int]  # None = unlimited

@@ -155,6 +155,10 @@ export default function RulesPage() {
 
   const [applyingTemplate, setApplyingTemplate] = useState<string | null>(null);
   const [confirmTemplate, setConfirmTemplate] = useState<RuleTemplate | null>(null);
+  const [pendingHighThresholdRule, setPendingHighThresholdRule] = useState<{
+    ruleType: string;
+    value: Record<string, unknown>;
+  } | null>(null);
 
   const selectedRuleType = RULE_TYPES.find((r) => r.value === ruleType);
 
@@ -172,6 +176,25 @@ export default function RulesPage() {
     return `${template.name} applied — ${template.rules.length} rule${template.rules.length !== 1 ? "s" : ""} active.`;
   }
 
+  const HIGH_THRESHOLD_TYPES = new Set(["auto_approve_below", "require_approval_above"]);
+  const HIGH_THRESHOLD_LIMIT = 1000;
+
+  async function _submitRule(rt: string, value: Record<string, unknown>) {
+    try {
+      await createRule(selectedAgentId, rt, value);
+      toast.success("Rule added");
+      setAddOpen(false);
+      setRuleType("");
+      setAmountValue("");
+      setListValue("");
+      mutateRules();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to add rule");
+    } finally {
+      setAdding(false);
+    }
+  }
+
   async function handleAddRule(e: React.FormEvent) {
     e.preventDefault();
     if (!selectedAgentId || !ruleType) return;
@@ -186,6 +209,12 @@ export default function RulesPage() {
         return;
       }
       value = { amount: amt };
+      // Warn before creating a high auto-approve threshold
+      if (HIGH_THRESHOLD_TYPES.has(ruleType) && amt > HIGH_THRESHOLD_LIMIT) {
+        setPendingHighThresholdRule({ ruleType, value });
+        setAdding(false);
+        return;
+      }
     } else if (selectedRuleType?.hasList) {
       const items = listValue
         .split(",")
@@ -200,19 +229,15 @@ export default function RulesPage() {
       value = { [key]: items };
     }
 
-    try {
-      await createRule(selectedAgentId, ruleType, value);
-      toast.success("Rule added");
-      setAddOpen(false);
-      setRuleType("");
-      setAmountValue("");
-      setListValue("");
-      mutateRules();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to add rule");
-    } finally {
-      setAdding(false);
-    }
+    await _submitRule(ruleType, value);
+  }
+
+  async function handleConfirmHighThreshold() {
+    if (!pendingHighThresholdRule) return;
+    const { ruleType: rt, value } = pendingHighThresholdRule;
+    setPendingHighThresholdRule(null);
+    setAdding(true);
+    await _submitRule(rt, value);
   }
 
   function handleApplyTemplate(template: RuleTemplate) {
@@ -440,6 +465,42 @@ export default function RulesPage() {
           </p>
         </div>
       )}
+
+      {/* High-threshold warning dialog */}
+      <Dialog
+        open={pendingHighThresholdRule !== null}
+        onOpenChange={(open) => { if (!open) setPendingHighThresholdRule(null); }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              High auto-approve threshold
+            </DialogTitle>
+            <DialogDescription>
+              Purchases up to{" "}
+              <span className="font-medium text-foreground">
+                ${Number(pendingHighThresholdRule?.value?.amount ?? 0).toLocaleString()}
+              </span>{" "}
+              will be approved without your review. Are you sure?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => setPendingHighThresholdRule(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleConfirmHighThreshold}
+              className="bg-amber-600 hover:bg-amber-700 text-white transition-colors duration-150"
+            >
+              Yes, create rule
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Confirm Template Apply Dialog */}
       <Dialog

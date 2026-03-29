@@ -1,7 +1,7 @@
 "use client";
 
 import useSWR from "swr";
-import { getDashboardStats, getRequests, getAgents } from "@/lib/api";
+import { getDashboardStats, getRequests, getAgents, getUsage, UsageData } from "@/lib/api";
 import { MetricCard } from "@/components/metric-card";
 import { PendingCard } from "@/components/pending-card";
 import {
@@ -10,6 +10,8 @@ import {
   Clock,
   DollarSign,
   TrendingUp,
+  AlertTriangle,
+  Zap,
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -32,6 +34,124 @@ function formatPct(val: number | null | undefined): string {
   return `${(n * 100).toFixed(1)}%`;
 }
 
+function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+const NEXT_PLAN: Record<string, { name: string; requests: number; price: string }> = {
+  free:    { name: "Starter", requests: 5000,  price: "$29/mo" },
+  starter: { name: "Pro",     requests: 50000, price: "$99/mo" },
+  pro:     { name: "Business", requests: -1,   price: "Custom" },
+};
+
+function UsageSection({ usage }: { usage: UsageData }) {
+  const { plan, requests_this_month, requests_limit, agents_active, agents_limit } = usage;
+
+  if (requests_limit === null) {
+    // Business plan — unlimited, show compact summary
+    return (
+      <div className="rounded-xl border border-border bg-white dark:bg-slate-800 p-4 flex items-center gap-3">
+        <Zap className="h-4 w-4 text-indigo-500 flex-shrink-0" />
+        <span className="text-sm text-muted-foreground">
+          <span className="font-medium text-slate-900 dark:text-white">{capitalize(plan)} plan</span>
+          {" — "}unlimited requests · {agents_active} agent{agents_active !== 1 ? "s" : ""} active
+        </span>
+      </div>
+    );
+  }
+
+  const usagePct = requests_limit > 0 ? requests_this_month / requests_limit : 0;
+  const isOver = usagePct >= 1;
+  const isWarning = usagePct >= 0.8;
+  const hardCap = Math.floor(requests_limit * 1.1);
+
+  const barColor = isOver
+    ? "bg-red-500"
+    : isWarning
+    ? "bg-amber-500"
+    : "bg-indigo-500";
+
+  const nextPlanInfo = NEXT_PLAN[plan];
+
+  return (
+    <div className="space-y-3">
+      {/* Usage bar */}
+      <div className="rounded-xl border border-border bg-white dark:bg-slate-800 p-4">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-slate-900 dark:text-white">
+              {capitalize(plan)} plan
+            </span>
+            <span className="text-xs text-muted-foreground">
+              · {agents_active}{agents_limit !== null ? `/${agents_limit}` : ""} agent{agents_active !== 1 ? "s" : ""} active
+            </span>
+          </div>
+          <span className={`text-xs font-medium ${isOver ? "text-red-600 dark:text-red-400" : isWarning ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"}`}>
+            {requests_this_month.toLocaleString()} / {requests_limit.toLocaleString()} requests this month
+          </span>
+        </div>
+        <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all duration-500 ${barColor}`}
+            style={{ width: `${Math.min(usagePct * 100, 100)}%` }}
+          />
+        </div>
+        {isOver && (
+          <p className="text-xs text-red-600 dark:text-red-400 mt-1.5">
+            Over limit — requests blocked at {hardCap.toLocaleString()}
+          </p>
+        )}
+      </div>
+
+      {/* Hard-limit banner */}
+      {isOver && nextPlanInfo && (
+        <div className="rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30 p-4">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-red-700 dark:text-red-300">
+                Monthly limit reached — agents are paused
+              </p>
+              <p className="text-xs text-red-600 dark:text-red-400 mt-0.5">
+                You&apos;ve used {requests_this_month.toLocaleString()} of {requests_limit.toLocaleString()} requests.
+                Upgrade to {nextPlanInfo.name} for {nextPlanInfo.requests > 0 ? `${nextPlanInfo.requests.toLocaleString()} requests/month` : "unlimited requests"}.
+              </p>
+            </div>
+            <Link href="/billing">
+              <Button size="sm" className="bg-red-600 hover:bg-red-700 text-white flex-shrink-0">
+                Upgrade · {nextPlanInfo.price}
+              </Button>
+            </Link>
+          </div>
+        </div>
+      )}
+
+      {/* 80% warning upsell */}
+      {isWarning && !isOver && nextPlanInfo && (
+        <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-4">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-amber-700 dark:text-amber-300">
+                You&apos;ve used {Math.round(usagePct * 100)}% of your monthly requests
+              </p>
+              <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
+                {requests_this_month.toLocaleString()} of {requests_limit.toLocaleString()} used.
+                Upgrade to {nextPlanInfo.name} for {nextPlanInfo.requests > 0 ? `${nextPlanInfo.requests.toLocaleString()} requests/month` : "unlimited"} — {nextPlanInfo.price}.
+              </p>
+            </div>
+            <Link href="/billing">
+              <Button size="sm" variant="outline" className="border-amber-300 hover:bg-amber-100 dark:hover:bg-amber-950/50 text-amber-700 dark:text-amber-300 flex-shrink-0">
+                Upgrade
+              </Button>
+            </Link>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function OverviewPage() {
   const {
     data: stats,
@@ -52,6 +172,10 @@ export default function OverviewPage() {
 
   const { data: agents, isLoading: agentsLoading } = useSWR("agents", getAgents, {
     refreshInterval: 30000,
+  });
+
+  const { data: usageData } = useSWR("usage", getUsage, {
+    refreshInterval: 60000,
   });
 
   const agentMap = new Map(agents?.map((a) => [a.id, a.name]) ?? []);
@@ -119,6 +243,8 @@ export default function OverviewPage() {
           color="green"
         />
       </div>
+
+      {usageData && <UsageSection usage={usageData} />}
 
       <div>
         <div className="flex items-center justify-between mb-4">

@@ -11,7 +11,8 @@ from app.database import get_db
 from app.middleware.auth import UserDep, _hash_api_key
 from app.models.database import Agent
 from app.models.schemas import AgentCreate, AgentCreateResponse, AgentResponse, AgentUpdate
-from app.services import audit
+from app.plans import PLAN_LIMITS, UPGRADE_URL, get_next_plan
+from app.services import audit, usage
 
 router = APIRouter()
 
@@ -49,6 +50,26 @@ async def create_agent(
     user: UserDep,
     db: AsyncSession = Depends(get_db),
 ) -> AgentCreateResponse:
+    plan = getattr(user, "plan", "free") or "free"
+    limit = PLAN_LIMITS.get(plan, PLAN_LIMITS["free"])["max_agents"]
+    if limit is not None:
+        count = await usage.get_active_agents(user.id, db)
+        if count >= limit:
+            next_plan = get_next_plan(plan)
+            next_limits = PLAN_LIMITS.get(next_plan or "", {})
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "error": "agent_limit_reached",
+                    "current_plan": plan,
+                    "agents_active": count,
+                    "agents_limit": limit,
+                    "upgrade_to": next_plan,
+                    "upgrade_limit": next_limits.get("max_agents"),
+                    "upgrade_url": UPGRADE_URL,
+                },
+            )
+
     raw_key = f"sk-ag-{secrets.token_hex(32)}"
     key_hash = _hash_api_key(raw_key)
     key_prefix = raw_key[:16] + "..."

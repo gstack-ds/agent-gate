@@ -33,6 +33,7 @@ def mock_user(user_id) -> User:
         name="Test User",
         supabase_auth_id=uuid.uuid4(),
         notification_preferences={"email": True, "sms": False},
+        plan="free",
         created_at=datetime.now(timezone.utc),
     )
 

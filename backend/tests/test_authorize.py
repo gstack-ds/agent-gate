@@ -10,6 +10,7 @@ import pytest
 from httpx import AsyncClient
 
 from app.models.database import AuthorizationRequest
+from app.services import usage as usage_service
 
 
 # ---------------------------------------------------------------------------
@@ -57,14 +58,33 @@ def mock_req_result(req) -> MagicMock:
     return m
 
 
+def mock_user_result(user) -> MagicMock:
+    """Mock for SELECT User — uses scalar_one_or_none."""
+    m = MagicMock()
+    m.scalar_one_or_none.return_value = user
+    return m
+
+
+def mock_count_result(n: int = 0) -> MagicMock:
+    """Mock for SELECT COUNT — uses scalar."""
+    m = MagicMock()
+    m.scalar.return_value = n
+    return m
+
+
 # ---------------------------------------------------------------------------
 # POST /v1/authorize
 # ---------------------------------------------------------------------------
 
-async def test_authorize_no_rules_returns_pending(agent_client: AsyncClient, mock_agent, mock_db):
+async def test_authorize_no_rules_returns_pending(agent_client: AsyncClient, mock_agent, mock_user, mock_db):
     """No rules → default pending → 202, no approval_token."""
+    usage_service._cache.reset()
     stored = make_auth_req(mock_agent.id, "pending")
-    mock_db.execute = AsyncMock(return_value=mock_rules_result([]))
+    mock_db.execute = AsyncMock(side_effect=[
+        mock_user_result(mock_user),   # user lookup
+        mock_count_result(0),          # monthly request count
+        mock_rules_result([]),         # active rules
+    ])
     mock_db.refresh = AsyncMock(side_effect=lambda obj: None)
 
     with patch("app.api.authorize.AuthorizationRequest", return_value=stored):
@@ -79,12 +99,17 @@ async def test_authorize_no_rules_returns_pending(agent_client: AsyncClient, moc
     assert data["expires_at"] is not None
 
 
-async def test_authorize_blocked_vendor_denied(agent_client: AsyncClient, mock_agent, mock_db):
+async def test_authorize_blocked_vendor_denied(agent_client: AsyncClient, mock_agent, mock_user, mock_db):
     """blocked_vendors rule → 200, status=denied, no approval_token."""
+    usage_service._cache.reset()
     rule = make_rule_ns("blocked_vendors", {"vendors": ["AWS"]})
     stored = make_auth_req(mock_agent.id, "denied")
     stored.approval_token = None
-    mock_db.execute = AsyncMock(return_value=mock_rules_result([rule]))
+    mock_db.execute = AsyncMock(side_effect=[
+        mock_user_result(mock_user),
+        mock_count_result(0),
+        mock_rules_result([rule]),
+    ])
     mock_db.refresh = AsyncMock(side_effect=lambda obj: None)
 
     with patch("app.api.authorize.AuthorizationRequest", return_value=stored):
@@ -99,11 +124,16 @@ async def test_authorize_blocked_vendor_denied(agent_client: AsyncClient, mock_a
     assert data["approval_token"] is None
 
 
-async def test_authorize_pending_returns_202(agent_client: AsyncClient, mock_agent, mock_db):
+async def test_authorize_pending_returns_202(agent_client: AsyncClient, mock_agent, mock_user, mock_db):
     """require_approval_above rule → 202 Accepted with expires_at."""
+    usage_service._cache.reset()
     rule = make_rule_ns("require_approval_above", {"amount": 10.0})
     stored = make_auth_req(mock_agent.id, "pending")
-    mock_db.execute = AsyncMock(return_value=mock_rules_result([rule]))
+    mock_db.execute = AsyncMock(side_effect=[
+        mock_user_result(mock_user),
+        mock_count_result(0),
+        mock_rules_result([rule]),
+    ])
     mock_db.refresh = AsyncMock(side_effect=lambda obj: None)
 
     with patch("app.api.authorize.AuthorizationRequest", return_value=stored):

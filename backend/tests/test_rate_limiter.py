@@ -107,9 +107,13 @@ async def test_authorize_rate_limit_returns_429(agent_client: AsyncClient, mock_
         rule_evaluation={},
         created_at=datetime.now(timezone.utc),
     )
-    mock_db.execute = AsyncMock(
-        side_effect=lambda *a, **kw: MagicMock(scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=[]))))
-    )
+    def _make_exec_mock():
+        m = MagicMock()
+        m.scalar.return_value = 0   # count=0 → under any plan limit
+        m.scalars.return_value.all.return_value = []
+        return m
+
+    mock_db.execute = AsyncMock(side_effect=lambda *a, **kw: _make_exec_mock())
     mock_db.refresh = AsyncMock(side_effect=lambda obj: None)
 
     try:
