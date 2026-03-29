@@ -40,9 +40,6 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-logger.info(f"SUPABASE_URL starts with: {settings.SUPABASE_URL[:30]!r}")
-logger.info(f"CORS_ORIGINS: {settings.CORS_ORIGINS!r}")
-
 _origins = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
