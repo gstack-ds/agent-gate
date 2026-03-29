@@ -16,6 +16,7 @@ from typing import Any
 
 import httpx
 from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
 
 AGENTGATE_API_URL = os.getenv(
     "AGENTGATE_API_URL",
@@ -25,7 +26,18 @@ AGENTGATE_API_URL = os.getenv(
 # streamable_http_path="/" so the internal Starlette route sits at "/".
 # When FastAPI mounts this sub-app at "/mcp" it strips the prefix, so the
 # MCP endpoint is reachable at /mcp (not /mcp/mcp).
-mcp = FastMCP("AgentGate", streamable_http_path="/")
+#
+# transport_security: DNS rebinding protection is disabled because this server
+# is deployed on Railway behind HTTPS — it is not a local server. The attack
+# vector (malicious page tricking a local server) does not apply here.
+# FastAPI's CORS middleware already handles cross-origin protection.
+mcp = FastMCP(
+    "AgentGate",
+    streamable_http_path="/",
+    transport_security=TransportSecuritySettings(
+        enable_dns_rebinding_protection=False,
+    ),
+)
 
 
 def _headers(api_key: str) -> dict[str, str]:
