@@ -3,7 +3,7 @@ Standalone MCP runner for local development.
 
 Usage:
     # MCP Inspector (interactive testing):
-    python -m mcp dev backend/mcp_runner.py
+    mcp dev backend/mcp_runner.py
 
     # Stdio transport (for Claude Desktop / Cursor local config):
     python backend/mcp_runner.py

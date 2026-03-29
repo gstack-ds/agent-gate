@@ -94,7 +94,7 @@ transport to point your client at it:
 
 ```bash
 pip install mcp[cli]
-python -m mcp dev backend/mcp_runner.py
+mcp dev backend/mcp_runner.py
 ```
 
 This opens the MCP Inspector in your browser where you can invoke all three
