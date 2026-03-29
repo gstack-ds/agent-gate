@@ -63,11 +63,18 @@ pytest          # 79 tests, all must pass before any commit
 | 2026-03-29 | MCP tools are thin HTTP passthroughs to live API | All business logic stays in FastAPI; MCP is just a protocol adapter |
 | 2026-03-29 | Disabled DNS rebinding protection on MCP server | Deployed HTTPS server, not a local server — attack vector doesn't apply |
 | 2026-03-29 | `AGENTGATE_API_URL` env var for MCP tool base URL | Allows local dev to point at localhost instead of production |
+| 2026-03-29 | Plan limits in `app/plans.py`, not `app/config.py` | `config.py` is a file not a directory; kept plans separate and importable |
+| 2026-03-29 | 60s in-memory cache for monthly request count | COUNT on every authorize call would be expensive at scale; 60s staleness is acceptable given 10% grace period |
+| 2026-03-29 | $10k ceiling applied after rule evaluation, not inside rule engine | Rule engine is frozen; ceiling is a platform-level guardrail separate from user-configured rules |
+| 2026-03-29 | `plan_warning` added to `AuthorizeResponse` (additive) | Allows agents to surface overage warnings without breaking existing schema consumers |
 
 ---
 
 ## Current TODOs
 
-- [ ] Branch `fix/mcp-check-status-debug-url` has one unpushed commit adding `url_called` to `check_authorization_status` error responses — needs PR review and merge to main
+- [ ] Branch `fix/mcp-check-status-debug-url` has all session work — needs PR and merge to main
+- [ ] Run `supabase db push` (or paste `supabase/migrations/002_add_plan_column.sql` in Supabase SQL editor) to add `plan` column to production `users` table
+- [ ] Verify usage bar shows on live dashboard after deploy
 - [ ] Verify MCP endpoint works end-to-end on Railway after latest deploy
+- [ ] Add Stripe billing (upgrade button charges + sets `user.plan`) — `UPGRADE_URL` already points to `/billing`
 - [ ] Consider adding MCP tool tests (currently no test coverage for `mcp_server.py`)
