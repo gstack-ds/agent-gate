@@ -39,6 +39,12 @@ class MCPBearerMiddleware:
             await self.app(scope, receive, send)
             return
 
+        # Starlette Mount strips the path prefix; a request to exactly /mcp
+        # arrives here with path="". Normalize to "/" so FastMCP's internal
+        # route (registered at "/") can match without a redirect.
+        if scope.get("path") == "":
+            scope = {**scope, "path": "/"}
+
         headers = {k.lower(): v for k, v in scope.get("headers", [])}
         auth = headers.get(b"authorization", b"").decode("utf-8", errors="replace")
         path = scope.get("path", "")
