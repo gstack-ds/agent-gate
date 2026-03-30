@@ -59,6 +59,7 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(
     lifespan=lifespan,
+    redirect_slashes=False,
     title="AgentGate API",
     description=(
         "Human authorization gateway for AI agent transactions. "
