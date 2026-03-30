@@ -2,6 +2,7 @@
 
 import base64
 import hashlib
+import logging
 import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -14,6 +15,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.models.database import Agent, OAuthAuthCode, OAuthClient, OAuthToken, User
+
+logger = logging.getLogger(__name__)
 
 _CODE_TTL_SECONDS = 600       # 10 minutes
 _TOKEN_TTL_DAYS = 30
@@ -89,6 +92,7 @@ def decode_login_proof(token: str) -> dict:
 async def validate_supabase_credentials(email: str, password: str) -> Optional[str]:
     """Validate email/password against Supabase. Returns Supabase user UUID or None."""
     url = f"{settings.SUPABASE_URL}/auth/v1/token?grant_type=password"
+    logger.info("Supabase auth attempt: POST %s (email=%s)", url, email)
     headers = {
         "apikey": settings.SUPABASE_ANON_KEY,
         "Content-Type": "application/json",
@@ -98,9 +102,20 @@ async def validate_supabase_credentials(email: str, password: str) -> Optional[s
             resp = await client.post(url, json={"email": email, "password": password}, headers=headers)
         if resp.status_code == 200:
             data = resp.json()
-            return data.get("user", {}).get("id")
+            uid = data.get("user", {}).get("id")
+            logger.info("Supabase auth succeeded for email=%s uid=%s", email, uid)
+            return uid
+        # Log the full Supabase error so we can diagnose failures in Railway logs
+        try:
+            err_body = resp.json()
+        except Exception:
+            err_body = resp.text
+        logger.warning(
+            "Supabase auth failed: status=%d url=%s email=%s body=%s",
+            resp.status_code, url, email, err_body,
+        )
     except Exception:
-        pass
+        logger.exception("Supabase auth request raised an exception: url=%s email=%s", url, email)
     return None
 
 
