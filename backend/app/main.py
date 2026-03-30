@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from app.config import settings
 from app.api.agents import router as agents_router
@@ -60,6 +61,25 @@ async def lifespan(app: FastAPI):
 
 logger = logging.getLogger(__name__)
 
+
+class _RequestLogger:
+    """Pure ASGI middleware — logs every HTTP request before routing."""
+    def __init__(self, app: ASGIApp) -> None:
+        self._app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] == "http":
+            logger.info(
+                "REQUEST %s %s headers=%s",
+                scope.get("method", "?"),
+                scope.get("path", "?"),
+                {k.decode(): v.decode("utf-8", errors="replace")
+                 for k, v in scope.get("headers", [])
+                 if k.lower() in (b"authorization", b"content-type", b"mcp-session-id")},
+            )
+        await self._app(scope, receive, send)
+
+
 app = FastAPI(
     lifespan=lifespan,
     redirect_slashes=False,
@@ -89,6 +109,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+# Outermost middleware — logs every request before CORS or routing touches it.
+app.add_middleware(_RequestLogger)
 
 # Agent-facing endpoints (API key auth)
 app.include_router(authorize_router, prefix="/v1", tags=["authorization"])
