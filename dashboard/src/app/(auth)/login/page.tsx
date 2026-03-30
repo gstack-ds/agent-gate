@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Shield } from "lucide-react";
 import { toast } from "sonner";
 
-type Mode = "login" | "signup";
+type Mode = "login" | "signup" | "forgot";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -33,13 +33,18 @@ export default function LoginPage() {
         if (error) throw new Error(error.message);
         router.push("/");
         router.refresh();
-      } else {
+      } else if (mode === "signup") {
         const { error } = await supabase.auth.signUp({
           email,
           password,
         });
         if (error) throw new Error(error.message);
         toast.success("Account created! Check your email to confirm, then sign in.");
+        setMode("login");
+      } else {
+        const { error } = await supabase.auth.resetPasswordForEmail(email);
+        if (error) throw new Error(error.message);
+        toast.success("Check your email for a reset link.");
         setMode("login");
       }
     } catch (err) {
@@ -67,12 +72,14 @@ export default function LoginPage() {
           </div>
 
           <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-1 font-heading">
-            {mode === "login" ? "Sign in" : "Create account"}
+            {mode === "login" ? "Sign in" : mode === "signup" ? "Create account" : "Reset password"}
           </h2>
           <p className="text-sm text-slate-500 dark:text-slate-400 mb-5">
             {mode === "login"
               ? "Enter your email and password to access the dashboard"
-              : "Create an account to start managing your agents"}
+              : mode === "signup"
+              ? "Create an account to start managing your agents"
+              : "Enter your email and we'll send you a reset link"}
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -89,22 +96,35 @@ export default function LoginPage() {
                 className="border border-slate-200 dark:border-slate-600 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                autoComplete={
-                  mode === "login" ? "current-password" : "new-password"
-                }
-                minLength={6}
-                className="border border-slate-200 dark:border-slate-600 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg"
-              />
-            </div>
+            {mode !== "forgot" && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="password">Password</Label>
+                  {mode === "login" && (
+                    <button
+                      type="button"
+                      className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline underline-offset-4"
+                      onClick={() => setMode("forgot")}
+                    >
+                      Forgot your password?
+                    </button>
+                  )}
+                </div>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  autoComplete={
+                    mode === "login" ? "current-password" : "new-password"
+                  }
+                  minLength={6}
+                  className="border border-slate-200 dark:border-slate-600 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg"
+                />
+              </div>
+            )}
             <Button
               type="submit"
               className="w-full bg-indigo-600 hover:bg-indigo-700 text-white transition-colors duration-150"
@@ -113,15 +133,30 @@ export default function LoginPage() {
               {loading
                 ? mode === "login"
                   ? "Signing in..."
-                  : "Creating account..."
+                  : mode === "signup"
+                  ? "Creating account..."
+                  : "Sending..."
                 : mode === "login"
                 ? "Sign in"
-                : "Create account"}
+                : mode === "signup"
+                ? "Create account"
+                : "Send reset link"}
             </Button>
           </form>
 
           <div className="mt-5 text-center text-sm text-slate-500 dark:text-slate-400">
-            {mode === "login" ? (
+            {mode === "forgot" ? (
+              <>
+                Remember your password?{" "}
+                <button
+                  type="button"
+                  className="text-indigo-600 dark:text-indigo-400 font-medium hover:underline underline-offset-4"
+                  onClick={() => setMode("login")}
+                >
+                  Sign in
+                </button>
+              </>
+            ) : mode === "login" ? (
               <>
                 Don&apos;t have an account?{" "}
                 <button
