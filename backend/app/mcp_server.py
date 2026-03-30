@@ -41,6 +41,7 @@ AGENTGATE_API_URL = os.getenv(
 mcp = FastMCP(
     "AgentGate",
     streamable_http_path="/",
+    stateless_http=True,
     transport_security=TransportSecuritySettings(
         enable_dns_rebinding_protection=False,
     ),
