@@ -5,6 +5,11 @@ Exposes AgentGate's authorization API as MCP tools so any AI agent on any
 platform (Claude, ChatGPT, Cursor, VS Code) can use AgentGate as a native
 tool — no SDK install required.
 
+Authentication: OAuth 2.1 + PKCE. The MCP client opens a browser for the
+user to log in — no api_key parameter needed. The Bearer token is injected
+by MCPBearerMiddleware (app/api/oauth_bearer.py) into a ContextVar that
+these tools read.
+
 Tools:
     authorize_transaction       — submit a transaction for authorization
     check_authorization_status  — poll a pending request
@@ -17,6 +22,8 @@ from typing import Any
 import httpx
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
+
+from app.api.oauth_bearer import mcp_bearer_token
 
 AGENTGATE_API_URL = os.getenv(
     "AGENTGATE_API_URL",
@@ -40,13 +47,27 @@ mcp = FastMCP(
 )
 
 
-def _headers(api_key: str) -> dict[str, str]:
-    return {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+def _auth_header() -> dict[str, str] | None:
+    """Return Authorization header using the token injected by MCPBearerMiddleware."""
+    token = mcp_bearer_token.get()
+    if not token:
+        return None
+    return {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+
+
+def _no_auth_error() -> dict[str, Any]:
+    return {
+        "error": True,
+        "detail": (
+            "No authentication token found. "
+            "Connect to this MCP server without an api_key — "
+            "your MCP client will open a browser for you to log in."
+        ),
+    }
 
 
 @mcp.tool()
 async def authorize_transaction(
-    api_key: str,
     action: str,
     amount: float,
     vendor: str,
@@ -70,7 +91,6 @@ async def authorize_transaction(
                                  transaction was blocked by their spending rules.
 
     Args:
-        api_key:     Your AgentGate API key (from the dashboard → Agents tab).
         action:      Short description of the action, e.g. "purchase flight tickets".
         amount:      Transaction amount as a number, e.g. 149.99.
         vendor:      Merchant or service name, e.g. "Delta Airlines".
@@ -82,6 +102,10 @@ async def authorize_transaction(
         JSON response with at minimum: status, request_id. May include
         approval_token (on auto_approved) or expires_at (on pending).
     """
+    headers = _auth_header()
+    if headers is None:
+        return _no_auth_error()
+
     payload: dict[str, Any] = {
         "action": action,
         "amount": amount,
@@ -98,7 +122,7 @@ async def authorize_transaction(
             resp = await client.post(
                 f"{AGENTGATE_API_URL}/v1/authorize",
                 json=payload,
-                headers=_headers(api_key),
+                headers=headers,
             )
         if resp.status_code in (200, 202):
             return resp.json()
@@ -115,7 +139,6 @@ async def authorize_transaction(
 
 @mcp.tool()
 async def check_authorization_status(
-    api_key: str,
     request_id: str,
 ) -> dict[str, Any]:
     """Check the status of a pending authorization request.
@@ -133,17 +156,20 @@ async def check_authorization_status(
         6. Proceed with the transaction.
 
     Args:
-        api_key:    Your AgentGate API key.
         request_id: The request ID returned by authorize_transaction.
 
     Returns:
         JSON with status field. If status="approved", an approval_token is
         also included.
     """
+    headers = _auth_header()
+    if headers is None:
+        return _no_auth_error()
+
     url = f"{AGENTGATE_API_URL}/v1/authorize/{request_id}"
     try:
         async with httpx.AsyncClient(timeout=15.0) as client:
-            resp = await client.get(url, headers=_headers(api_key))
+            resp = await client.get(url, headers=headers)
         if resp.status_code == 200:
             return resp.json()
         if resp.status_code == 404:
@@ -171,7 +197,6 @@ async def check_authorization_status(
 
 @mcp.tool()
 async def cancel_authorization(
-    api_key: str,
     request_id: str,
 ) -> dict[str, Any]:
     """Cancel a pending authorization request that is no longer needed.
@@ -181,17 +206,20 @@ async def cancel_authorization(
     request is no longer relevant. Only pending requests can be cancelled.
 
     Args:
-        api_key:    Your AgentGate API key.
         request_id: The request ID to cancel.
 
     Returns:
         {"cancelled": true} on success, or an error dict on failure.
     """
+    headers = _auth_header()
+    if headers is None:
+        return _no_auth_error()
+
     try:
         async with httpx.AsyncClient(timeout=15.0) as client:
             resp = await client.delete(
                 f"{AGENTGATE_API_URL}/v1/authorize/{request_id}",
-                headers=_headers(api_key),
+                headers=headers,
             )
         if resp.status_code == 204:
             return {"cancelled": True, "request_id": request_id}

@@ -24,7 +24,7 @@ uvicorn app.main:app --reload
 
 ## Tests
 ```bash
-pytest          # 90 tests, all must pass before any commit
+pytest          # 104 tests, all must pass before any commit
 ```
 
 ---
@@ -67,14 +67,17 @@ pytest          # 90 tests, all must pass before any commit
 | 2026-03-29 | 60s in-memory cache for monthly request count | COUNT on every authorize call would be expensive at scale; 60s staleness is acceptable given 10% grace period |
 | 2026-03-29 | $10k ceiling applied after rule evaluation, not inside rule engine | Rule engine is frozen; ceiling is a platform-level guardrail separate from user-configured rules |
 | 2026-03-29 | `plan_warning` added to `AuthorizeResponse` (additive) | Allows agents to surface overage warnings without breaking existing schema consumers |
+| 2026-03-29 | OAuth token → agent resolution via `require_agent` fallback | Raw API keys never stored; OAuth tokens hash-lookup the token, find user, return first active agent — no API changes needed for existing agent endpoints |
+| 2026-03-29 | Login proof JWT (5-min TTL) carries OAuth params between login and consent steps | Stateless — no server-side session table; signed with JWT_SECRET so it can't be forged |
+| 2026-03-29 | MCP tools no longer take `api_key` parameter | Bearer token injected by `MCPBearerMiddleware` into ContextVar; tools read it without needing it in the tool signature |
 
 ---
 
 ## Current TODOs
 
-- [ ] Branch `fix/mcp-check-status-debug-url` has all session work — needs PR and merge to main
-- [ ] Run `supabase db push` (or paste `supabase/migrations/002_add_plan_column.sql` in Supabase SQL editor) to add `plan` column to production `users` table
+- [ ] Run `supabase/migrations/002_add_plan_column.sql` in Supabase SQL editor (adds `plan` column to `users`)
+- [ ] Run `supabase/migrations/003_oauth_tables.sql` in Supabase SQL editor (adds `oauth_clients`, `oauth_auth_codes`, `oauth_tokens`)
+- [ ] Set `API_URL` env var on Railway to the production URL (defaults correctly but explicit is safer)
 - [ ] Verify usage bar shows on live dashboard after deploy
-- [ ] Verify MCP endpoint works end-to-end on Railway after latest deploy
+- [ ] Verify MCP OAuth flow end-to-end: connect Claude Desktop with just the URL, confirm browser login opens
 - [ ] Add Stripe billing (upgrade button charges + sets `user.plan`) — `UPGRADE_URL` already points to `/billing`
-- [ ] Consider adding MCP tool tests (currently no test coverage for `mcp_server.py`)

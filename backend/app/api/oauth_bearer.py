@@ -1,0 +1,57 @@
+"""ASGI middleware that extracts the Bearer token from MCP requests.
+
+Sets a ContextVar so MCP tool functions can read the token without needing
+it as an explicit function parameter.
+Returns 401 + WWW-Authenticate when no Bearer token is present.
+"""
+
+import json
+from contextvars import ContextVar
+
+from starlette.responses import Response
+from starlette.types import ASGIApp, Receive, Scope, Send
+
+# Shared ContextVar: set by the middleware, read by MCP tools.
+mcp_bearer_token: ContextVar[str | None] = ContextVar("mcp_bearer_token", default=None)
+
+_NO_AUTH_BODY = json.dumps({
+    "error": "unauthorized",
+    "detail": (
+        "Authentication required. "
+        "Connect to this MCP server without an api_key — your MCP client will open "
+        "a browser for you to log in with your AgentGate account."
+    ),
+}).encode()
+
+
+class MCPBearerMiddleware:
+    """Wraps the MCP sub-app. Injects Bearer token into ContextVar; blocks unauthenticated requests."""
+
+    def __init__(self, app: ASGIApp, api_url: str) -> None:
+        self.app = app
+        self.api_url = api_url.rstrip("/")
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] not in ("http", "websocket"):
+            await self.app(scope, receive, send)
+            return
+
+        headers = {k.lower(): v for k, v in scope.get("headers", [])}
+        auth = headers.get(b"authorization", b"").decode("utf-8", errors="replace")
+
+        if auth.startswith("Bearer "):
+            token = auth.removeprefix("Bearer ").strip()
+            mcp_bearer_token.set(token)
+            await self.app(scope, receive, send)
+        else:
+            resource_metadata = f"{self.api_url}/.well-known/oauth-authorization-server"
+            www_auth = f'Bearer realm="{self.api_url}", resource_metadata="{resource_metadata}"'
+            response = Response(
+                content=_NO_AUTH_BODY,
+                status_code=401,
+                headers={
+                    "Content-Type": "application/json",
+                    "WWW-Authenticate": www_auth,
+                },
+            )
+            await response(scope, receive, send)

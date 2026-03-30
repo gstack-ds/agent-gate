@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.database import get_db
 from app.models.database import Agent, User
+from app.services import oauth_service
 
 # Simple in-process JWKS cache — populated on first request, shared across calls.
 _jwks_cache: dict | None = None
@@ -64,13 +65,19 @@ async def require_agent(
         select(Agent).where(Agent.api_key_hash == key_hash, Agent.status == "active")
     )
     agent = result.scalar_one_or_none()
-    if agent is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or revoked API key",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    return agent
+    if agent is not None:
+        return agent
+
+    # Fall back to OAuth token → user's first active agent
+    agent = await oauth_service.get_agent_from_oauth_token(db, raw_key)
+    if agent is not None:
+        return agent
+
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid or revoked API key",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
 
 
 async def require_user(

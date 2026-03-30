@@ -158,6 +158,76 @@ class AuthorizationRequest(Base):
     )
 
 
+class OAuthClient(Base):
+    __tablename__ = "oauth_clients"
+
+    client_id: Mapped[str] = mapped_column(Text, primary_key=True)
+    redirect_uri_prefixes: Mapped[list] = mapped_column(
+        JSON, server_default=text("'[]'::jsonb")
+    )
+    client_name: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), server_default=text("NOW()")
+    )
+
+
+class OAuthAuthCode(Base):
+    __tablename__ = "oauth_auth_codes"
+    __table_args__ = (
+        Index("idx_oauth_codes_expires", "expires_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    code_hash: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    client_id: Mapped[str] = mapped_column(
+        Text, ForeignKey("oauth_clients.client_id", ondelete="CASCADE"), nullable=False
+    )
+    redirect_uri: Mapped[str] = mapped_column(Text, nullable=False)
+    code_challenge: Mapped[str] = mapped_column(Text, nullable=False)
+    code_challenge_method: Mapped[str] = mapped_column(
+        Text, server_default=text("'S256'")
+    )
+    scope: Mapped[str] = mapped_column(Text, server_default=text("'authorize'"))
+    expires_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False
+    )
+    used_at: Mapped[Optional[datetime]] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), server_default=text("NOW()")
+    )
+
+
+class OAuthToken(Base):
+    __tablename__ = "oauth_tokens"
+    __table_args__ = (
+        Index("idx_oauth_tokens_user", "user_id"),
+        Index("idx_oauth_tokens_expires", "expires_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    token_hash: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    client_id: Mapped[str] = mapped_column(Text, nullable=False)
+    scope: Mapped[str] = mapped_column(Text, server_default=text("'authorize'"))
+    expires_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), server_default=text("NOW()")
+    )
+
+
 class AuditLog(Base):
     __tablename__ = "audit_log"
     __table_args__ = (

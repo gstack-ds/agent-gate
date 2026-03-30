@@ -10,9 +10,12 @@ from app.config import settings
 from app.api.agents import router as agents_router
 from app.api.authorize import router as authorize_router
 from app.api.dashboard import router as dashboard_router
+from app.api.oauth import router as oauth_router
+from app.api.oauth_bearer import MCPBearerMiddleware
 from app.api.requests import router as requests_router
 from app.api.rules import router as rules_router
 from app.api.usage import router as usage_router
+from app.config import settings
 from app.mcp_server import mcp
 from app.services import expiration
 
@@ -75,11 +78,16 @@ app.include_router(requests_router, prefix="/v1", tags=["requests"])
 app.include_router(dashboard_router, prefix="/v1", tags=["dashboard"])
 app.include_router(usage_router, prefix="/v1", tags=["usage"])
 
+# OAuth 2.1 endpoints (no prefix — includes /.well-known path)
+app.include_router(oauth_router, tags=["oauth"])
+
 
 @app.get("/health", tags=["meta"])
 async def health() -> dict:
     return {"status": "ok", "version": "0.1.0"}
 
 
-# MCP server — Streamable HTTP transport, mounted at /mcp
-app.mount("/mcp", _mcp_app)
+# MCP server — Streamable HTTP transport, mounted at /mcp.
+# Wrapped in MCPBearerMiddleware: returns 401 + WWW-Authenticate when no
+# Bearer token present, injects the token into a ContextVar otherwise.
+app.mount("/mcp", MCPBearerMiddleware(_mcp_app, settings.API_URL))
