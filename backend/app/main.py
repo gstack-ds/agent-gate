@@ -15,7 +15,6 @@ from app.api.oauth_bearer import MCPBearerMiddleware
 from app.api.requests import router as requests_router
 from app.api.rules import router as rules_router
 from app.api.usage import router as usage_router
-from app.config import settings
 from app.mcp_server import mcp
 from app.services import expiration
 
@@ -25,6 +24,14 @@ _mcp_app = mcp.streamable_http_app()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Log config so Railway deployments can be verified at startup
+    anon_preview = (settings.SUPABASE_ANON_KEY[:10] + "...") if settings.SUPABASE_ANON_KEY else "(not set)"
+    logger.info(
+        "AgentGate startup — SUPABASE_URL=%s SUPABASE_ANON_KEY=%s API_URL=%s",
+        settings.SUPABASE_URL or "(not set)",
+        anon_preview,
+        settings.API_URL,
+    )
     # mcp.session_manager.run() provides the anyio task group the MCP handler
     # requires — without it every request returns 500 "Task group not initialized".
     async with mcp.session_manager.run():
