@@ -55,6 +55,14 @@ pytest          # 104 tests, all must pass before any commit
 
 ---
 
+**Date:** 2026-03-29
+**What happened:** Bearer token from OAuth flow was rejected on every `GET /mcp/` request with 401.
+**Root cause:** `MCPBearerMiddleware` used `auth.startswith("Bearer ")` — a case-sensitive check. RFC 6750 §2.1 says the `Bearer` keyword is case-insensitive. The OAuth token response sets `"token_type": "bearer"` (lowercase), and some MCP clients (including Claude Code's built-in OAuth handler) send `Authorization: bearer <token>` (lowercase b), so the middleware never matched and always returned 401.
+**Fix:** Changed to `auth.lower().startswith("bearer ")` + extract token with `auth[7:].strip()`. Also added structured logging to the middleware and `get_agent_from_oauth_token` to make future failures diagnosable from Railway logs.
+**Rule:** Always do case-insensitive checks for HTTP scheme keywords (`Bearer`, `Basic`, etc.). Never use `str.startswith("Bearer ")` for Authorization header parsing.
+
+---
+
 ## Design Decisions Log
 
 | Date | Decision | Reason |
