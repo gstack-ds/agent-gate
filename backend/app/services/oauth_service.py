@@ -234,20 +234,56 @@ async def get_agent_from_oauth_token(
 ) -> Optional[Agent]:
     """Resolve an OAuth Bearer token to the user's first active agent."""
     token_hash = _sha256(raw_token)
+    logger.info(
+        "oauth_token_lookup: token_prefix=%.8s... token_hash_prefix=%.8s...",
+        raw_token, token_hash,
+    )
+    now = datetime.now(timezone.utc)
     result = await db.execute(
         select(OAuthToken).where(
             OAuthToken.token_hash == token_hash,
-            OAuthToken.expires_at > datetime.now(timezone.utc),
+            OAuthToken.expires_at > now,
         )
     )
     token_record = result.scalar_one_or_none()
     if token_record is None:
+        # Run a second query without the expiry filter to distinguish
+        # "token not found" from "token found but expired".
+        check = await db.execute(
+            select(OAuthToken).where(OAuthToken.token_hash == token_hash)
+        )
+        any_record = check.scalar_one_or_none()
+        if any_record is None:
+            logger.warning(
+                "oauth_token_lookup: token NOT found in oauth_tokens (hash=%.8s...)",
+                token_hash,
+            )
+        else:
+            logger.warning(
+                "oauth_token_lookup: token FOUND but EXPIRED (hash=%.8s... expires_at=%s now=%s)",
+                token_hash, any_record.expires_at, now,
+            )
         return None
 
+    logger.info(
+        "oauth_token_lookup: token found user_id=%s expires_at=%s",
+        token_record.user_id, token_record.expires_at,
+    )
     result = await db.execute(
         select(Agent)
         .where(Agent.user_id == token_record.user_id, Agent.status == "active")
         .order_by(Agent.created_at)
         .limit(1)
     )
-    return result.scalar_one_or_none()
+    agent = result.scalar_one_or_none()
+    if agent is None:
+        logger.warning(
+            "oauth_token_lookup: token valid but no active agent found for user_id=%s",
+            token_record.user_id,
+        )
+    else:
+        logger.info(
+            "oauth_token_lookup: resolved to agent_id=%s agent_name=%s",
+            agent.id, agent.name,
+        )
+    return agent
