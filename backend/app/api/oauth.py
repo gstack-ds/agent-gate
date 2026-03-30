@@ -89,9 +89,13 @@ def _login_page(
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Sign in — AgentGate</title>
-<style>{_BASE_STYLE}</style></head>
+<style>{_BASE_STYLE}
+.forgot-link{{font-size:.8125rem;color:#818cf8;text-decoration:none;float:right;margin-top:6px}}
+.forgot-link:hover{{text-decoration:underline}}
+</style></head>
 <body><div class="card">
 {_LOGO}
+<div id="login-section">
 <h1>Sign in to AgentGate</h1>
 <p><strong style="color:#e2e8f0">{client_name}</strong> is requesting access to your AgentGate account.</p>
 <form method="post" action="/oauth/login">
@@ -109,10 +113,29 @@ def _login_page(
   <div class="field">
     <label for="password">Password</label>
     <input type="password" id="password" name="password" required placeholder="••••••••">
+    <a href="#" class="forgot-link" onclick="showForgot();return false;">Forgot your password?</a>
+    <div style="clear:both"></div>
   </div>
   {err_html}
   <button type="submit" class="btn">Sign in</button>
 </form>
+</div>
+<div id="reset-section" style="display:none">
+<h1>Reset your password</h1>
+<p>Enter your email and we&apos;ll send you a link to reset your password.</p>
+<form method="post" action="/oauth/forgot-password">
+  <div class="field">
+    <label for="reset-email">Email</label>
+    <input type="email" id="reset-email" name="email" required autofocus placeholder="you@example.com">
+  </div>
+  <button type="submit" class="btn">Send reset link</button>
+  <button type="button" class="btn btn-deny" onclick="showLogin()" style="margin-top:8px">Back to sign in</button>
+</form>
+</div>
+<script>
+function showForgot(){{document.getElementById('login-section').style.display='none';document.getElementById('reset-section').style.display='';document.getElementById('reset-email').focus();}}
+function showLogin(){{document.getElementById('login-section').style.display='';document.getElementById('reset-section').style.display='none';}}
+</script>
 </div></body></html>"""
 
 
@@ -135,6 +158,20 @@ def _consent_page(client_name: str, login_proof: str, scope: str) -> str:
   <button type="submit" name="action" value="approve" class="btn">Allow</button>
   <button type="submit" name="action" value="deny" class="btn btn-deny" style="margin-top:8px">Deny</button>
 </form>
+</div></body></html>"""
+
+
+def _reset_sent_page(email: str) -> str:
+    return f"""<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Check your email — AgentGate</title>
+<style>{_BASE_STYLE}</style></head>
+<body><div class="card">
+{_LOGO}
+<h1>Check your email</h1>
+<p>We sent a password reset link to <strong style="color:#e2e8f0">{email}</strong>.<br>
+Click the link in the email to set a new password, then come back and sign in.</p>
 </div></body></html>"""
 
 
@@ -326,6 +363,17 @@ async def oauth_consent_submit(
         params_dict["state"] = state
     params = urlencode(params_dict)
     return RedirectResponse(f"{redirect_uri}?{params}", status_code=303)
+
+
+# ---------------------------------------------------------------------------
+# Forgot password — calls Supabase recover endpoint
+# ---------------------------------------------------------------------------
+
+@router.post("/oauth/forgot-password", response_class=HTMLResponse)
+async def oauth_forgot_password(email: str = Form(...)) -> HTMLResponse:
+    # Always show the confirmation page — never reveal whether the email exists
+    await oauth_service.send_password_reset(email)
+    return HTMLResponse(_reset_sent_page(email))
 
 
 # ---------------------------------------------------------------------------

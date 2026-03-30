@@ -89,6 +89,22 @@ def decode_login_proof(token: str) -> dict:
 # Supabase credential validation
 # ---------------------------------------------------------------------------
 
+async def send_password_reset(email: str) -> None:
+    """Call Supabase Auth's password recovery endpoint. Always succeeds silently."""
+    url = f"{settings.SUPABASE_URL}/auth/v1/recover"
+    headers = {"apikey": settings.SUPABASE_ANON_KEY, "Content-Type": "application/json"}
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(url, json={"email": email}, headers=headers)
+        if resp.status_code not in (200, 204):
+            logger.warning(
+                "Supabase password reset non-success: status=%d email=%s body=%s",
+                resp.status_code, email, resp.text,
+            )
+    except Exception:
+        logger.exception("Supabase password reset request raised an exception: email=%s", email)
+
+
 async def validate_supabase_credentials(email: str, password: str) -> Optional[str]:
     """Validate email/password against Supabase. Returns Supabase user UUID or None."""
     url = f"{settings.SUPABASE_URL}/auth/v1/token?grant_type=password"
