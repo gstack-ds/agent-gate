@@ -24,7 +24,7 @@ uvicorn app.main:app --reload
 
 ## Tests
 ```bash
-pytest          # 79 tests, all must pass before any commit
+pytest          # 90 tests, all must pass before any commit
 ```
 
 ---
