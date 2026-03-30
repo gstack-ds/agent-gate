@@ -45,6 +45,9 @@ async def lifespan(app: FastAPI):
     )
     # mcp.session_manager.run() provides the anyio task group the MCP handler
     # requires — without it every request returns 500 "Task group not initialized".
+    for route in app.routes:
+        logger.info("Route: %s -> %s", getattr(route, "path", "(no path)"), type(route).__name__)
+
     async with mcp.session_manager.run():
         task = asyncio.create_task(expiration.run_expiration_loop())
         yield
