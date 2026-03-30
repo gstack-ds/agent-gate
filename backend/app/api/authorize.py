@@ -52,7 +52,7 @@ async def create_authorization_request(
         plan = getattr(user, "plan", "free") or "free"
         limit = PLAN_LIMITS.get(plan, PLAN_LIMITS["free"])["max_requests_per_month"]
         if limit is not None:
-            count = await usage_service.get_requests_this_month(user.id, db)
+            count = await usage_service.get_authorizations_this_month(user.id, db)
             hard_cap = int(limit * 1.1)
             if count >= hard_cap:
                 next_plan = get_next_plan(plan)
@@ -60,7 +60,7 @@ async def create_authorization_request(
                 raise HTTPException(
                     status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                     detail={
-                        "error": "request_limit_reached",
+                        "error": "authorization_limit_reached",
                         "current_plan": plan,
                         "requests_used": count,
                         "requests_limit": limit,
@@ -71,8 +71,8 @@ async def create_authorization_request(
                 )
             elif count >= limit:
                 plan_warning = (
-                    f"You are over your monthly limit. "
-                    f"Requests will be blocked at {hard_cap}/{limit}."
+                    f"You are over your monthly authorization limit. "
+                    f"Authorizations will be blocked at {hard_cap}/{limit}."
                 )
 
     # Load the agent's active rules

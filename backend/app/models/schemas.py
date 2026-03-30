@@ -177,7 +177,7 @@ class ActivityItem(BaseModel):
 
 class UsageResponse(BaseModel):
     plan: str
-    requests_this_month: int
-    requests_limit: Optional[int]  # None = unlimited
+    authorizations_this_month: int  # count of POST /v1/authorize calls this calendar month
+    requests_limit: Optional[int]   # None = unlimited (field name kept for backwards compat)
     agents_active: int
-    agents_limit: Optional[int]  # None = unlimited
+    agents_limit: Optional[int]     # None = unlimited

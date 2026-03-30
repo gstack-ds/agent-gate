@@ -200,7 +200,7 @@ export async function getActivity(): Promise<ActivityItem[]> {
 
 export interface UsageData {
   plan: string;
-  requests_this_month: number;
+  authorizations_this_month: number;
   requests_limit: number | null;
   agents_active: number;
   agents_limit: number | null;

@@ -95,6 +95,7 @@ async def test_authorize_at_limit_warns_but_allows(agent_client: AsyncClient, mo
     assert response.status_code == 202
     warning = response.json().get("plan_warning")
     assert warning is not None
+    assert "authorization" in warning.lower()
     assert "220" in warning   # hard_cap = int(200 * 1.1) = 220
 
 
@@ -112,7 +113,7 @@ async def test_authorize_at_hard_cap_returns_429(agent_client: AsyncClient, mock
 
     assert response.status_code == 429
     detail = response.json()["detail"]
-    assert detail["error"] == "request_limit_reached"
+    assert detail["error"] == "authorization_limit_reached"
     assert detail["current_plan"] == "free"
     assert detail["requests_limit"] == 200
     assert detail["upgrade_to"] == "starter"
@@ -269,7 +270,7 @@ async def test_get_usage_returns_correct_counts(user_client: AsyncClient, mock_u
     assert response.status_code == 200
     data = response.json()
     assert data["plan"] == "free"
-    assert data["requests_this_month"] == 47
+    assert data["authorizations_this_month"] == 47
     assert data["requests_limit"] == 200
     assert data["agents_active"] == 1
     assert data["agents_limit"] == 2

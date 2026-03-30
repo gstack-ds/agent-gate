@@ -146,6 +146,13 @@ async def check_authorization_status(
             resp = await client.get(url, headers=_headers(api_key))
         if resp.status_code == 200:
             return resp.json()
+        if resp.status_code == 404:
+            return {
+                "error": True,
+                "status_code": 404,
+                "detail": "Authorization request not found — it may have expired (requests expire after 5 minutes).",
+                "url_called": url,
+            }
         try:
             detail = resp.json().get("detail", resp.text)
         except Exception:

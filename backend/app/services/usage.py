@@ -42,11 +42,13 @@ class _UsageCache:
 _cache = _UsageCache()
 
 
-async def get_requests_this_month(user_id: uuid.UUID, db: AsyncSession) -> int:
-    """Return the number of authorization requests this calendar month for a user.
+async def get_authorizations_this_month(user_id: uuid.UUID, db: AsyncSession) -> int:
+    """Return the number of authorization requests (POST /v1/authorize) submitted
+    this calendar month for a user.
 
-    Result is cached for 60 seconds per user to avoid a COUNT query on every
-    authorize call.
+    Only POST /v1/authorize creates rows in authorization_requests — GET and DELETE
+    do not insert rows — so this count accurately reflects billable authorizations.
+    Result is cached for 60 seconds per user to avoid a COUNT query on every call.
     """
     key = str(user_id)
     cached = _cache.get(key)

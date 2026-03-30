@@ -23,12 +23,12 @@ async def get_usage(
     plan = getattr(user, "plan", "free") or "free"
     limits = PLAN_LIMITS.get(plan, PLAN_LIMITS["free"])
 
-    requests_this_month = await usage.get_requests_this_month(user.id, db)
+    authorizations_this_month = await usage.get_authorizations_this_month(user.id, db)
     agents_active = await usage.get_active_agents(user.id, db)
 
     return UsageResponse(
         plan=plan,
-        requests_this_month=requests_this_month,
+        authorizations_this_month=authorizations_this_month,
         requests_limit=limits["max_requests_per_month"],
         agents_active=agents_active,
         agents_limit=limits["max_agents"],

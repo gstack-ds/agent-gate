@@ -45,7 +45,7 @@ const NEXT_PLAN: Record<string, { name: string; requests: number; price: string 
 };
 
 function UsageSection({ usage }: { usage: UsageData }) {
-  const { plan, requests_this_month, requests_limit, agents_active, agents_limit } = usage;
+  const { plan, authorizations_this_month, requests_limit, agents_active, agents_limit } = usage;
 
   if (requests_limit === null) {
     // Business plan — unlimited, show compact summary
@@ -54,13 +54,13 @@ function UsageSection({ usage }: { usage: UsageData }) {
         <Zap className="h-4 w-4 text-indigo-500 flex-shrink-0" />
         <span className="text-sm text-muted-foreground">
           <span className="font-medium text-slate-900 dark:text-white">{capitalize(plan)} plan</span>
-          {" — "}unlimited requests · {agents_active} agent{agents_active !== 1 ? "s" : ""} active
+          {" — "}unlimited authorizations · {agents_active} agent{agents_active !== 1 ? "s" : ""} active
         </span>
       </div>
     );
   }
 
-  const usagePct = requests_limit > 0 ? requests_this_month / requests_limit : 0;
+  const usagePct = requests_limit > 0 ? authorizations_this_month / requests_limit : 0;
   const isOver = usagePct >= 1;
   const isWarning = usagePct >= 0.8;
   const hardCap = Math.floor(requests_limit * 1.1);
@@ -87,7 +87,7 @@ function UsageSection({ usage }: { usage: UsageData }) {
             </span>
           </div>
           <span className={`text-xs font-medium ${isOver ? "text-red-600 dark:text-red-400" : isWarning ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"}`}>
-            {requests_this_month.toLocaleString()} / {requests_limit.toLocaleString()} requests this month
+            {authorizations_this_month.toLocaleString()} / {requests_limit.toLocaleString()} authorizations this month
           </span>
         </div>
         <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
@@ -98,7 +98,7 @@ function UsageSection({ usage }: { usage: UsageData }) {
         </div>
         {isOver && (
           <p className="text-xs text-red-600 dark:text-red-400 mt-1.5">
-            Over limit — requests blocked at {hardCap.toLocaleString()}
+            Over limit — authorizations blocked at {hardCap.toLocaleString()}
           </p>
         )}
       </div>
@@ -113,8 +113,8 @@ function UsageSection({ usage }: { usage: UsageData }) {
                 Monthly limit reached — agents are paused
               </p>
               <p className="text-xs text-red-600 dark:text-red-400 mt-0.5">
-                You&apos;ve used {requests_this_month.toLocaleString()} of {requests_limit.toLocaleString()} requests.
-                Upgrade to {nextPlanInfo.name} for {nextPlanInfo.requests > 0 ? `${nextPlanInfo.requests.toLocaleString()} requests/month` : "unlimited requests"}.
+                You&apos;ve used {authorizations_this_month.toLocaleString()} of {requests_limit.toLocaleString()} authorizations.
+                Upgrade to {nextPlanInfo.name} for {nextPlanInfo.requests > 0 ? `${nextPlanInfo.requests.toLocaleString()} authorizations/month` : "unlimited authorizations"}.
               </p>
             </div>
             <Link href="/billing">
@@ -133,11 +133,11 @@ function UsageSection({ usage }: { usage: UsageData }) {
             <AlertTriangle className="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" />
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-amber-700 dark:text-amber-300">
-                You&apos;ve used {Math.round(usagePct * 100)}% of your monthly requests
+                You&apos;ve used {Math.round(usagePct * 100)}% of your monthly authorizations
               </p>
               <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
-                {requests_this_month.toLocaleString()} of {requests_limit.toLocaleString()} used.
-                Upgrade to {nextPlanInfo.name} for {nextPlanInfo.requests > 0 ? `${nextPlanInfo.requests.toLocaleString()} requests/month` : "unlimited"} — {nextPlanInfo.price}.
+                {authorizations_this_month.toLocaleString()} of {requests_limit.toLocaleString()} used.
+                Upgrade to {nextPlanInfo.name} for {nextPlanInfo.requests > 0 ? `${nextPlanInfo.requests.toLocaleString()} authorizations/month` : "unlimited"} — {nextPlanInfo.price}.
               </p>
             </div>
             <Link href="/billing">

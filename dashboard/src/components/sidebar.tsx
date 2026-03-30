@@ -21,7 +21,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
 import useSWR from "swr";
-import { getDashboardStats } from "@/lib/api";
+import { getDashboardStats, getUsage } from "@/lib/api";
 
 const navItems = [
   { href: "/", label: "Overview", icon: LayoutDashboard },
@@ -75,6 +75,11 @@ export function Sidebar() {
     refreshInterval: 15000,
   });
   const pendingCount = stats?.pending ?? 0;
+
+  const { data: usageData } = useSWR("usage", getUsage, { refreshInterval: 60000 });
+  const planLabel = usageData
+    ? `${usageData.plan.charAt(0).toUpperCase() + usageData.plan.slice(1)} plan`
+    : "Free plan";
 
   async function handleSignOut() {
     const supabase = createClient();
@@ -138,7 +143,7 @@ export function Sidebar() {
         <ThemeToggle />
         <div className="px-3 py-2">
           <span className="bg-slate-800 text-slate-400 text-xs px-3 py-1 rounded inline-block">
-            Free plan
+            {planLabel}
           </span>
         </div>
         <button
