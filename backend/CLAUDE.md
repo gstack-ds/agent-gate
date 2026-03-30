@@ -63,6 +63,22 @@ pytest          # 104 tests, all must pass before any commit
 
 ---
 
+**Date:** 2026-03-30
+**What happened:** `POST /mcp` returned 404 even after `streamable_http_path="/"` was already set.
+**Root cause:** `StreamableHTTPSessionManager._handle_stateful_request` returns HTTP 404 (per MCP spec) when a client sends an `mcp-session-id` header that isn't in the server's in-memory session map. After every Railway container restart, all sessions are wiped. Any MCP client that reconnects while still holding a cached session ID hits this branch.
+**Fix:** Set `stateless_http=True` on the `FastMCP` constructor. Stateless mode handles each POST as a self-contained exchange — no session tracking, no stale-session 404s.
+**Rule:** Always use `stateless_http=True` for FastMCP servers deployed on Railway (or any ephemeral/stateless container platform). Stateful mode is only suitable when session state can survive across requests (e.g., in-memory store with sticky sessions or external session DB).
+
+---
+
+**Date:** 2026-03-30
+**What happened:** Even with `stateless_http=True` and a new `_RequestLogger` outermost ASGI middleware, Railway HTTP logs still show 404 but zero `REQUEST` log lines appear in application logs.
+**Root cause:** Not yet confirmed. The absence of ANY `_RequestLogger` output means requests are NOT reaching the FastAPI/Uvicorn process at all. The 404 is being generated upstream — either Railway's own proxy layer or the MCP client is hitting a different URL/path.
+**Fix:** Pending. Next session: run `curl -v -X POST https://agent-gate-production.up.railway.app/mcp -H "Authorization: Bearer test-token" -H "Content-Type: application/json" -d '...'` and check whether a `REQUEST POST /mcp` line appears in Railway logs.
+**Rule:** If app-level middleware logs nothing but the platform shows 404, the problem is in the infrastructure layer (proxy, DNS, port routing) — not the application code. Don't add more app-level debugging; investigate the platform.
+
+---
+
 ## Design Decisions Log
 
 | Date | Decision | Reason |
@@ -78,6 +94,8 @@ pytest          # 104 tests, all must pass before any commit
 | 2026-03-29 | OAuth token → agent resolution via `require_agent` fallback | Raw API keys never stored; OAuth tokens hash-lookup the token, find user, return first active agent — no API changes needed for existing agent endpoints |
 | 2026-03-29 | Login proof JWT (5-min TTL) carries OAuth params between login and consent steps | Stateless — no server-side session table; signed with JWT_SECRET so it can't be forged |
 | 2026-03-29 | MCP tools no longer take `api_key` parameter | Bearer token injected by `MCPBearerMiddleware` into ContextVar; tools read it without needing it in the tool signature |
+| 2026-03-30 | `stateless_http=True` on FastMCP constructor | Railway restarts wipe in-memory session state; stateful mode causes stale-session 404s on every redeploy |
+| 2026-03-30 | `_RequestLogger` pure ASGI middleware (outermost, added via `add_middleware`) | Logs method + path + key headers before CORS or routing; safe for SSE streaming unlike `BaseHTTPMiddleware` |
 
 ---
 
@@ -87,6 +105,9 @@ pytest          # 104 tests, all must pass before any commit
 - [ ] Run `supabase/migrations/003_oauth_tables.sql` in Supabase SQL editor (adds `oauth_clients`, `oauth_auth_codes`, `oauth_tokens`)
 - [ ] Set `API_URL` env var on Railway to the production URL (defaults correctly but explicit is safer)
 - [ ] Verify usage bar shows on live dashboard after deploy
+- [ ] **NEXT SESSION START HERE — MCP 404 not resolved.** Run `curl -v -X POST https://agent-gate-production.up.railway.app/mcp -H "Authorization: Bearer test-token" -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","method":"initialize","id":1,"params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}'` and check Railway logs for `REQUEST POST /mcp`. If it appears: code is fine, client is the problem. If it doesn't appear: Railway proxy/port config is the problem.
+- [ ] Remove debug middleware (`_RequestLogger` in `main.py`) once `/mcp` is confirmed working
+- [ ] Remove startup route-table debug loop in `lifespan()` once `/mcp` is confirmed working
 - [ ] Verify MCP OAuth flow end-to-end: connect Claude Desktop with just the URL, confirm browser login opens
 - [ ] Add Stripe billing (upgrade button charges + sets `user.plan`) — `UPGRADE_URL` already points to `/billing`
 - [ ] Check Railway startup logs after next deploy: compare "raw env" vs "pydantic" lines for SUPABASE_ANON_KEY to confirm env var is being read correctly
