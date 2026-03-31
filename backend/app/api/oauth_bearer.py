@@ -22,7 +22,7 @@ _NO_AUTH_BODY = json.dumps({
     "detail": (
         "Authentication required. "
         "Connect to this MCP server without an api_key — your MCP client will open "
-        "a browser for you to log in with your AgentGate account."
+        "a browser for you to log in with your SpendNod account."
     ),
 }).encode()
 

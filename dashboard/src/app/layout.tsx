@@ -23,7 +23,7 @@ const ibmPlexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AgentGate Dashboard",
+  title: "SpendNod Dashboard",
   description: "Control panel for AI agent authorization",
 };
 

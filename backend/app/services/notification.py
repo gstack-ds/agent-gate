@@ -29,7 +29,7 @@ async def send_pending_notification(
     vendor_str = vendor or "N/A"
 
     text_body = (
-        f"AgentGate — Approval Required\n\n"
+        f"SpendNod — Approval Required\n\n"
         f"Agent: {agent_name}\n"
         f"Action: {action}\n"
         f"Amount: {amount_str}\n"
@@ -39,7 +39,7 @@ async def send_pending_notification(
     )
 
     html_body = f"""
-<h2>AgentGate — Approval Required</h2>
+<h2>SpendNod — Approval Required</h2>
 <table>
   <tr><td><strong>Agent</strong></td><td>{agent_name}</td></tr>
   <tr><td><strong>Action</strong></td><td>{action}</td></tr>
@@ -51,9 +51,9 @@ async def send_pending_notification(
 """
 
     payload = {
-        "from": "AgentGate <notifications@agentgate.dev>",
+        "from": "SpendNod <notifications@spendnod.dev>",
         "to": [user_email],
-        "subject": f"[AgentGate] Approval required — {agent_name}: {action}",
+        "subject": f"[SpendNod] Approval required — {agent_name}: {action}",
         "text": text_body,
         "html": html_body,
     }

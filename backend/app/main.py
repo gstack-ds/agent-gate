@@ -34,13 +34,13 @@ async def lifespan(app: FastAPI):
     _raw_api = os.getenv("API_URL", "")
     anon_preview = (_raw_key[:10] + "...") if _raw_key else "(not set)"
     logger.info(
-        "AgentGate startup (raw env) — SUPABASE_URL=%s SUPABASE_ANON_KEY=%s API_URL=%s",
+        "SpendNod startup (raw env) — SUPABASE_URL=%s SUPABASE_ANON_KEY=%s API_URL=%s",
         _raw_url or "(not set)",
         anon_preview,
         _raw_api or "(not set — will use pydantic default)",
     )
     logger.info(
-        "AgentGate startup (pydantic) — SUPABASE_URL=%s SUPABASE_ANON_KEY=%s API_URL=%s",
+        "SpendNod startup (pydantic) — SUPABASE_URL=%s SUPABASE_ANON_KEY=%s API_URL=%s",
         settings.SUPABASE_URL or "(not set)",
         (settings.SUPABASE_ANON_KEY[:10] + "...") if settings.SUPABASE_ANON_KEY else "(not set)",
         settings.API_URL,
@@ -84,7 +84,7 @@ class _RequestLogger:
 app = FastAPI(
     lifespan=lifespan,
     redirect_slashes=False,
-    title="AgentGate API",
+    title="SpendNod API",
     description=(
         "Human authorization gateway for AI agent transactions. "
         "Agents submit requests; humans approve or deny via the dashboard."
