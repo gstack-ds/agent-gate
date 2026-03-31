@@ -3,8 +3,9 @@ import logging
 import os
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.responses import StreamingResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from app.config import settings
@@ -131,7 +132,59 @@ async def health() -> dict:
     return {"status": "ok", "version": "0.1.0"}
 
 
-# MCP server — Streamable HTTP transport, mounted at /mcp.
-# Wrapped in MCPBearerMiddleware: returns 401 + WWW-Authenticate when no
-# Bearer token present, injects the token into a ContextVar otherwise.
-app.mount("/mcp", MCPBearerMiddleware(_mcp_app, settings.API_URL))
+# MCP server — Streamable HTTP transport at /mcp.
+# Registered as explicit routes instead of app.mount() because Starlette 1.0
+# changed Mount path regex to require a trailing slash separator, which means
+# app.mount("/mcp") no longer matches bare POST /mcp.
+_mcp_handler = MCPBearerMiddleware(_mcp_app, settings.API_URL)
+
+
+async def _mcp_proxy(request: Request) -> StreamingResponse:
+    """ASGI proxy: rewrites path to '/' and forwards to the FastMCP handler."""
+    scope = dict(request.scope)
+    scope["path"] = "/"
+    scope["raw_path"] = b"/"
+
+    headers_ready = asyncio.Event()
+    _status: list[int] = []
+    _resp_headers: list = []
+    body_queue: asyncio.Queue[tuple[bytes, bool]] = asyncio.Queue()
+
+    async def _send(message: dict) -> None:
+        if message["type"] == "http.response.start":
+            _status.append(message["status"])
+            _resp_headers.extend(message.get("headers", []))
+            headers_ready.set()
+        elif message["type"] == "http.response.body":
+            await body_queue.put((
+                message.get("body", b""),
+                message.get("more_body", False),
+            ))
+
+    handler_task = asyncio.create_task(
+        _mcp_handler(scope, request._receive, _send)
+    )
+
+    await asyncio.wait_for(headers_ready.wait(), timeout=30.0)
+
+    async def _body_stream():
+        while True:
+            body, more = await body_queue.get()
+            if body:
+                yield body
+            if not more:
+                break
+        await handler_task
+
+    resp_headers = {k.decode(): v.decode() for k, v in _resp_headers}
+    return StreamingResponse(
+        _body_stream(),
+        status_code=_status[0],
+        headers=resp_headers,
+    )
+
+
+# Both /mcp and /mcp/ are registered so clients that append a trailing slash
+# also reach the handler (redirect_slashes=False means no automatic redirect).
+app.add_api_route("/mcp", _mcp_proxy, methods=["GET", "POST", "DELETE"], include_in_schema=False)
+app.add_api_route("/mcp/", _mcp_proxy, methods=["GET", "POST", "DELETE"], include_in_schema=False)
