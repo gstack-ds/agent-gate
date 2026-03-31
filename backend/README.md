@@ -1,6 +1,6 @@
-# AgentGate Backend
+# SpendNod Backend
 
-FastAPI backend for AgentGate — human authorization gateway for AI agent transactions.
+FastAPI backend for SpendNod — human authorization gateway for AI agent transactions.
 
 ## Running locally
 
@@ -16,8 +16,8 @@ API docs available at `http://localhost:8000/docs`.
 
 ## MCP Server
 
-AgentGate ships a built-in MCP (Model Context Protocol) server so any AI agent
-on any platform can use AgentGate as a native tool — no SDK install required.
+SpendNod ships a built-in MCP (Model Context Protocol) server so any AI agent
+on any platform can use SpendNod as a native tool — no SDK install required.
 
 ### Tools exposed
 
@@ -37,7 +37,7 @@ Connect directly to the deployed server — no local setup required.
 ```json
 {
   "mcpServers": {
-    "agentgate": {
+    "spendnod": {
       "url": "https://agent-gate-production.up.railway.app/mcp"
     }
   }
@@ -49,7 +49,7 @@ Connect directly to the deployed server — no local setup required.
 ```json
 {
   "mcpServers": {
-    "agentgate": {
+    "spendnod": {
       "url": "https://agent-gate-production.up.railway.app/mcp"
     }
   }
@@ -61,7 +61,7 @@ Connect directly to the deployed server — no local setup required.
 ```json
 {
   "servers": {
-    "agentgate": {
+    "spendnod": {
       "type": "http",
       "url": "https://agent-gate-production.up.railway.app/mcp"
     }
@@ -79,7 +79,7 @@ transport to point your client at it:
 ```json
 {
   "mcpServers": {
-    "agentgate": {
+    "spendnod": {
       "command": "python",
       "args": ["backend/mcp_runner.py"],
       "env": {

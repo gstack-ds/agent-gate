@@ -64,7 +64,7 @@ export default function LoginPage() {
               <Shield className="h-6 w-6 text-white" />
             </div>
             <h1 className="text-2xl font-semibold text-slate-900 dark:text-white font-heading">
-              AgentGate
+              SpendNod
             </h1>
             <p className="text-sm text-slate-500 dark:text-slate-400 text-center mt-1">
               Authorize your AI agents with confidence

@@ -39,7 +39,7 @@ AGENTGATE_API_URL = os.getenv(
 # vector (malicious page tricking a local server) does not apply here.
 # FastAPI's CORS middleware already handles cross-origin protection.
 mcp = FastMCP(
-    "AgentGate",
+    "SpendNod",
     streamable_http_path="/",
     stateless_http=True,
     transport_security=TransportSecuritySettings(
@@ -133,7 +133,7 @@ async def authorize_transaction(
             "detail": resp.json().get("detail", resp.text),
         }
     except httpx.TimeoutException:
-        return {"error": True, "detail": "Request timed out. The AgentGate API did not respond in time."}
+        return {"error": True, "detail": "Request timed out. The SpendNod API did not respond in time."}
     except Exception as exc:
         return {"error": True, "detail": str(exc)}
 
@@ -230,6 +230,6 @@ async def cancel_authorization(
             "detail": resp.json().get("detail", resp.text),
         }
     except httpx.TimeoutException:
-        return {"error": True, "detail": "Request timed out. The AgentGate API did not respond in time."}
+        return {"error": True, "detail": "Request timed out. The SpendNod API did not respond in time."}
     except Exception as exc:
         return {"error": True, "detail": str(exc)}
