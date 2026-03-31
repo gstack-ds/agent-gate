@@ -1,4 +1,4 @@
-# AgentGate Backend
+# SpendNod Backend (formerly AgentGate)
 
 FastAPI authorization gateway. Agents POST to `/v1/authorize`; humans approve via the dashboard.
 
@@ -112,3 +112,4 @@ pytest          # 104 tests, all must pass before any commit
 - [ ] Verify MCP OAuth flow end-to-end: connect Claude Desktop with just the URL, confirm browser login opens
 - [ ] Add Stripe billing (upgrade button charges + sets `user.plan`) — `UPGRADE_URL` already points to `/billing`
 - [ ] Check Railway startup logs after next deploy: compare "raw env" vs "pydantic" lines for SUPABASE_ANON_KEY to confirm env var is being read correctly
+- [ ] **Next session:** Merge `feat/rebrand-spendnod` PR after review, then update `notification.py` Resend sender domain from `notifications@spendnod.dev` once domain is purchased

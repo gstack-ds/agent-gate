@@ -1,4 +1,4 @@
-# AgentGate
+# SpendNod (formerly AgentGate)
 
 Authorization gateway for AI agents and financial transactions.
 
@@ -13,7 +13,7 @@ Authorization gateway for AI agents and financial transactions.
 - [ ] Paste confirmation email HTML into Supabase
 - [ ] Verify usage bar shows on live dashboard
 - [ ] Deploy landing page (HTML file ready, needs hosting)
-- [ ] Buy domain (agentgate.dev or agentgate.io)
+- [ ] Buy domain (spendnod.dev or spendnod.io)
 - [ ] Record demo video #1 (SDK flow — storyboard ready)
 - [ ] Record demo video #2 (MCP flow — 60 seconds)
 

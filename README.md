@@ -1,4 +1,4 @@
-# AgentGate
+# SpendNod
 
 A lightweight authorization gateway that sits between AI agents and financial transactions, giving humans control over what their AI agents can spend.
 
@@ -7,11 +7,11 @@ A lightweight authorization gateway that sits between AI agents and financial tr
 
 ## Overview
 
-AI agents are rapidly gaining the ability to make purchases, book services, and transfer money on behalf of humans. But most people aren't ready to hand their wallets to AI with zero oversight. AgentGate solves this by providing a simple authorization layer — three lines of code for the developer, one swipe to approve for the human.
+AI agents are rapidly gaining the ability to make purchases, book services, and transfer money on behalf of humans. But most people aren't ready to hand their wallets to AI with zero oversight. SpendNod solves this by providing a simple authorization layer — three lines of code for the developer, one swipe to approve for the human.
 
-AgentGate is framework-agnostic and payment-agnostic. It doesn't care if the agent uses LangChain, CrewAI, or a custom framework, and it doesn't care if the payment goes through Stripe, Visa, or crypto. It sits above all of them as the policy and approval layer. Agents call AgentGate first to get permission, then proceed to whatever commerce protocol the merchant supports.
+SpendNod is framework-agnostic and payment-agnostic. It doesn't care if the agent uses LangChain, CrewAI, or a custom framework, and it doesn't care if the payment goes through Stripe, Visa, or crypto. It sits above all of them as the policy and approval layer. Agents call SpendNod first to get permission, then proceed to whatever commerce protocol the merchant supports.
 
-The product is designed around configurable rules — humans set their own risk tolerance (auto-approve under $100, always block gambling, escalate anything over $500) and AgentGate enforces those rules in real-time with sub-second decisions.
+The product is designed around configurable rules — humans set their own risk tolerance (auto-approve under $100, always block gambling, escalate anything over $500) and SpendNod enforces those rules in real-time with sub-second decisions.
 
 ## Tech Stack
 
@@ -85,7 +85,7 @@ approval = gate.authorize(
 ```
 
 1. **Agent calls `POST /v1/authorize`** with what it wants to do
-2. **AgentGate evaluates rules** — checks blocked vendors, amount thresholds, daily/monthly limits, category restrictions
+2. **SpendNod evaluates rules** — checks blocked vendors, amount thresholds, daily/monthly limits, category restrictions
 3. **Three possible outcomes:**
    - ✅ **Auto-approved** — within the human's configured rules, instant response
    - ⏳ **Pending** — escalated to human via push notification, agent waits
@@ -150,11 +150,11 @@ agentgate/
 | 3 | Open protocol (ATAP), vendor token verification, tiered pricing | Not Started |
 | 4 | Anomaly detection, smart rule suggestions, budget forecasting | Not Started |
 
-## Why AgentGate?
+## Why SpendNod?
 
 The agentic commerce market is projected to reach $190B–$385B in the U.S. by 2030 (Morgan Stanley). Every player — Stripe ACP, Google AP2, Visa, Mastercard, Skyfire — is focused on enabling agents to transact. Nobody is focused on giving humans granular, real-time control over what their agents do. That's the gap.
 
-The EU AI Act takes effect August 2, 2026, requiring auditable proof that AI systems operated within authorized parameters. AgentGate provides exactly that.
+The EU AI Act takes effect August 2, 2026, requiring auditable proof that AI systems operated within authorized parameters. SpendNod provides exactly that.
 
 ## Contributing
 

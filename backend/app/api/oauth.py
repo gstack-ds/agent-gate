@@ -68,7 +68,7 @@ _LOGO = """
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
       <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
     </svg>
-    <span>AgentGate</span>
+    <span>SpendNod</span>
   </div>
 """
 
@@ -88,7 +88,7 @@ def _login_page(
     return f"""<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Sign in — AgentGate</title>
+<title>Sign in — SpendNod</title>
 <style>{_BASE_STYLE}
 .forgot-link{{font-size:.8125rem;color:#818cf8;text-decoration:none;float:right;margin-top:6px}}
 .forgot-link:hover{{text-decoration:underline}}
@@ -96,8 +96,8 @@ def _login_page(
 <body><div class="card">
 {_LOGO}
 <div id="login-section">
-<h1>Sign in to AgentGate</h1>
-<p><strong style="color:#e2e8f0">{client_name}</strong> is requesting access to your AgentGate account.</p>
+<h1>Sign in to SpendNod</h1>
+<p><strong style="color:#e2e8f0">{client_name}</strong> is requesting access to your SpendNod account.</p>
 <form method="post" action="/oauth/login">
   <input type="hidden" name="client_id" value="{client_id}">
   <input type="hidden" name="redirect_uri" value="{redirect_uri}">
@@ -143,7 +143,7 @@ def _consent_page(client_name: str, login_proof: str, scope: str) -> str:
     return f"""<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Authorize — AgentGate</title>
+<title>Authorize — SpendNod</title>
 <style>{_BASE_STYLE}</style></head>
 <body><div class="card">
 {_LOGO}
@@ -151,7 +151,7 @@ def _consent_page(client_name: str, login_proof: str, scope: str) -> str:
 <p><strong style="color:#e2e8f0">{client_name}</strong> is asking for permission to submit authorization requests on behalf of your agents.</p>
 <div class="scope-box">
   <strong>Permissions requested:</strong><br>
-  Submit transactions for authorization via your AgentGate agents
+  Submit transactions for authorization via your SpendNod agents
 </div>
 <form method="post" action="/oauth/consent">
   <input type="hidden" name="login_proof" value="{login_proof}">
@@ -165,7 +165,7 @@ def _reset_sent_page(email: str) -> str:
     return f"""<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Check your email — AgentGate</title>
+<title>Check your email — SpendNod</title>
 <style>{_BASE_STYLE}</style></head>
 <body><div class="card">
 {_LOGO}
@@ -178,7 +178,7 @@ Click the link in the email to set a new password, then come back and sign in.</
 def _error_page(message: str) -> str:
     return f"""<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8">
-<title>Error — AgentGate</title>
+<title>Error — SpendNod</title>
 <style>{_BASE_STYLE}</style></head>
 <body><div class="card">
 {_LOGO}
@@ -294,7 +294,7 @@ async def oauth_login(
     result = await db.execute(select(User).where(User.supabase_auth_id == supabase_uid))
     user = result.scalar_one_or_none()
     if user is None:
-        return show_error("No AgentGate account found for this email. Sign up at the dashboard first.")
+        return show_error("No SpendNod account found for this email. Sign up at the dashboard first.")
 
     login_proof = oauth_service.create_login_proof(
         user_id=user.id,
