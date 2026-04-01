@@ -51,7 +51,7 @@ async def send_pending_notification(
 """
 
     payload = {
-        "from": "SpendNod <notifications@spendnod.dev>",
+        "from": "SpendNod <notifications@spendnod.com>",
         "to": [user_email],
         "subject": f"[SpendNod] Approval required — {agent_name}: {action}",
         "text": text_body,

@@ -6,7 +6,6 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import StreamingResponse
-from starlette.types import ASGIApp, Receive, Scope, Send
 
 from app.config import settings
 from app.api.agents import router as agents_router
@@ -26,29 +25,14 @@ _mcp_app = mcp.streamable_http_app()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Use os.getenv() directly to bypass pydantic-settings and show exactly
-    # what Railway injected — disambiguates "var not set" from "pydantic loaded
-    # an empty .env value".
-    _raw_url = os.getenv("SUPABASE_URL", "")
-    _raw_key = os.getenv("SUPABASE_ANON_KEY", "")
-    _raw_api = os.getenv("API_URL", "")
-    anon_preview = (_raw_key[:10] + "...") if _raw_key else "(not set)"
     logger.info(
-        "SpendNod startup (raw env) — SUPABASE_URL=%s SUPABASE_ANON_KEY=%s API_URL=%s",
-        _raw_url or "(not set)",
-        anon_preview,
-        _raw_api or "(not set — will use pydantic default)",
-    )
-    logger.info(
-        "SpendNod startup (pydantic) — SUPABASE_URL=%s SUPABASE_ANON_KEY=%s API_URL=%s",
+        "SpendNod startup — SUPABASE_URL=%s SUPABASE_ANON_KEY=%s API_URL=%s",
         settings.SUPABASE_URL or "(not set)",
         (settings.SUPABASE_ANON_KEY[:10] + "...") if settings.SUPABASE_ANON_KEY else "(not set)",
         settings.API_URL,
     )
     # mcp.session_manager.run() provides the anyio task group the MCP handler
     # requires — without it every request returns 500 "Task group not initialized".
-    for route in app.routes:
-        logger.info("Route: %s -> %s", getattr(route, "path", "(no path)"), type(route).__name__)
 
     async with mcp.session_manager.run():
         task = asyncio.create_task(expiration.run_expiration_loop())
@@ -62,23 +46,6 @@ async def lifespan(app: FastAPI):
 
 logger = logging.getLogger(__name__)
 
-
-class _RequestLogger:
-    """Pure ASGI middleware — logs every HTTP request before routing."""
-    def __init__(self, app: ASGIApp) -> None:
-        self._app = app
-
-    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] == "http":
-            logger.info(
-                "REQUEST %s %s headers=%s",
-                scope.get("method", "?"),
-                scope.get("path", "?"),
-                {k.decode(): v.decode("utf-8", errors="replace")
-                 for k, v in scope.get("headers", [])
-                 if k.lower() in (b"authorization", b"content-type", b"mcp-session-id")},
-            )
-        await self._app(scope, receive, send)
 
 
 app = FastAPI(
@@ -110,9 +77,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-# Outermost middleware — logs every request before CORS or routing touches it.
-app.add_middleware(_RequestLogger)
-
 # Agent-facing endpoints (API key auth)
 app.include_router(authorize_router, prefix="/v1", tags=["authorization"])
 
