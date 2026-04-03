@@ -21,6 +21,11 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     CORS_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000"
     API_URL: str = "https://agent-gate-production.up.railway.app"
+    STRIPE_SECRET_KEY: str = ""
+    STRIPE_PUBLISHABLE_KEY: str = ""
+    STRIPE_WEBHOOK_SECRET: str = ""
+    STRIPE_STARTER_PRICE_ID: str = ""
+    STRIPE_PRO_PRICE_ID: str = ""
 
 
 settings = Settings()

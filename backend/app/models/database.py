@@ -37,6 +37,7 @@ class User(Base):
         JSON, server_default=text("""'{"email": true, "sms": false}'::jsonb""")
     )
     plan: Mapped[str] = mapped_column(Text, server_default=text("'free'"), default="free")
+    stripe_customer_id: Mapped[Optional[str]] = mapped_column(Text, unique=True, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True), server_default=text("NOW()")
     )

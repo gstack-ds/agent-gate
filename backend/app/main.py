@@ -10,6 +10,7 @@ from starlette.responses import StreamingResponse
 from app.config import settings
 from app.api.agents import router as agents_router
 from app.api.authorize import router as authorize_router
+from app.api.billing import billing_router, webhook_router
 from app.api.dashboard import router as dashboard_router
 from app.api.oauth import router as oauth_router
 from app.api.oauth_bearer import MCPBearerMiddleware
@@ -81,6 +82,7 @@ app.add_middleware(
 app.include_router(authorize_router, prefix="/v1", tags=["authorization"])
 
 # Human-facing endpoints (Supabase JWT auth)
+app.include_router(billing_router, prefix="/v1", tags=["billing"])
 app.include_router(agents_router, prefix="/v1", tags=["agents"])
 app.include_router(rules_router, prefix="/v1", tags=["rules"])
 app.include_router(requests_router, prefix="/v1", tags=["requests"])
@@ -89,6 +91,9 @@ app.include_router(usage_router, prefix="/v1", tags=["usage"])
 
 # OAuth 2.1 endpoints (no prefix — includes /.well-known path)
 app.include_router(oauth_router, tags=["oauth"])
+
+# Stripe webhook — no /v1 prefix, no auth (Stripe calls it directly)
+app.include_router(webhook_router, tags=["billing"])
 
 
 @app.get("/health", tags=["meta"])
