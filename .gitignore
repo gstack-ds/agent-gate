@@ -33,3 +33,6 @@ htmlcov/
 .DS_Store
 Thumbs.db
 agentgate api keys.txt
+
+# Claude Code
+.claude/
