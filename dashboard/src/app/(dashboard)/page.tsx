@@ -1,6 +1,8 @@
 "use client";
 
 import useSWR from "swr";
+import { useEffect } from "react";
+import { toast } from "sonner";
 import { getDashboardStats, getRequests, getAgents, getUsage, UsageData } from "@/lib/api";
 import { MetricCard } from "@/components/metric-card";
 import { PendingCard } from "@/components/pending-card";
@@ -174,9 +176,20 @@ export default function OverviewPage() {
     refreshInterval: 30000,
   });
 
-  const { data: usageData } = useSWR("usage", getUsage, {
+  const { data: usageData, mutate: mutateUsage } = useSWR("usage", getUsage, {
     refreshInterval: 60000,
   });
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("upgraded") === "true") {
+      toast.success("Plan upgraded successfully!");
+      mutateUsage();
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const agentMap = new Map(agents?.map((a) => [a.id, a.name]) ?? []);
 

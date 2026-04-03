@@ -209,3 +209,18 @@ export interface UsageData {
 export async function getUsage(): Promise<UsageData> {
   return apiFetch<UsageData>("/v1/usage");
 }
+
+// --- Billing ---
+
+export async function createCheckoutSession(
+  plan: "starter" | "pro"
+): Promise<{ url: string }> {
+  return apiFetch<{ url: string }>("/v1/billing/checkout", {
+    method: "POST",
+    body: JSON.stringify({ plan }),
+  });
+}
+
+export async function createBillingPortal(): Promise<{ url: string }> {
+  return apiFetch<{ url: string }>("/v1/billing/portal", { method: "POST" });
+}
