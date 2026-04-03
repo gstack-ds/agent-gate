@@ -10,9 +10,13 @@ export async function GET(request: Request) {
     const supabase = await createClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
-      return NextResponse.redirect(`${origin}${next}`);
+      const forwardedHost = request.headers.get("x-forwarded-host");
+      const base = forwardedHost ? `https://${forwardedHost}` : origin;
+      return NextResponse.redirect(`${base}${next}`);
     }
   }
 
-  return NextResponse.redirect(`${origin}/login?error=oauth`);
+  const forwardedHost = request.headers.get("x-forwarded-host");
+  const base = forwardedHost ? `https://${forwardedHost}` : origin;
+  return NextResponse.redirect(`${base}/login?error=oauth`);
 }
