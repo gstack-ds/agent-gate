@@ -14,7 +14,6 @@ import {
   LogOut,
   Menu,
   X,
-  Shield,
   Sun,
   Moon,
   Zap,
@@ -109,7 +108,7 @@ export function Sidebar() {
     <>
       {/* Logo */}
       <div className="flex items-center gap-2.5 px-4 py-5 border-b border-slate-800">
-        <Shield className="h-6 w-6 text-indigo-400 flex-shrink-0" />
+        <img src="/spendnod-shield.svg" width={28} height={28} alt="SpendNod" className="flex-shrink-0" />
         <span className="font-semibold text-lg text-white tracking-tight">SpendNod</span>
       </div>
 
@@ -203,7 +202,7 @@ export function Sidebar() {
       {/* Mobile header */}
       <div className="md:hidden fixed top-0 left-0 right-0 z-40 flex items-center justify-between px-4 py-3 bg-slate-900 border-b border-slate-800">
         <div className="flex items-center gap-2">
-          <Shield className="h-5 w-5 text-indigo-400" />
+          <img src="/spendnod-shield.svg" width={20} height={20} alt="SpendNod" />
           <span className="font-semibold text-white">SpendNod</span>
         </div>
         <Button

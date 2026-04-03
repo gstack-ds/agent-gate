@@ -25,6 +25,9 @@ const ibmPlexMono = IBM_Plex_Mono({
 export const metadata: Metadata = {
   title: "SpendNod Dashboard",
   description: "Control panel for AI agent authorization",
+  icons: {
+    icon: "/favicon-32.png",
+  },
 };
 
 export default function RootLayout({

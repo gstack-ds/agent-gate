@@ -6,7 +6,6 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Shield } from "lucide-react";
 import { toast } from "sonner";
 
 type Mode = "login" | "signup" | "forgot";
@@ -60,9 +59,7 @@ export default function LoginPage() {
         <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700 p-8">
           {/* Logo */}
           <div className="flex flex-col items-center mb-6">
-            <div className="h-12 w-12 rounded-full bg-indigo-600 flex items-center justify-center mb-3">
-              <Shield className="h-6 w-6 text-white" />
-            </div>
+            <img src="/spendnod-shield.svg" width={48} height={48} alt="SpendNod" className="mb-3" />
             <h1 className="text-2xl font-semibold text-slate-900 dark:text-white font-heading">
               SpendNod
             </h1>

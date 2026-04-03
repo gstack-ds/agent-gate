@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 140" fill="none">
+  <!-- Shield body -->
+  <path d="M60 8L12 32V68C12 100 32 126 60 136C88 126 108 100 108 68V32L60 8Z" fill="#2B6CB0" stroke="#2B6CB0" stroke-width="2"/>
+  <!-- Inner shield border -->
+  <path d="M60 18L22 38V68C22 95 39 118 60 126C81 118 98 95 98 68V38L60 18Z" fill="#2B6CB0" stroke="#ffffff" stroke-width="3" stroke-opacity="0.3"/>
+  <!-- Checkmark -->
+  <polyline points="38,72 54,90 84,52" fill="none" stroke="#ffffff" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
