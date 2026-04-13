@@ -3,6 +3,7 @@ import { DM_Sans, IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
+import { Analytics } from "@vercel/analytics/next";
 
 const dmSans = DM_Sans({
   subsets: ["latin"],
@@ -50,6 +51,7 @@ export default function RootLayout({
         >
           {children}
           <Toaster richColors />
+          <Analytics />
         </ThemeProvider>
       </body>
     </html>
