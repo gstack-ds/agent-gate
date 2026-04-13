@@ -1,7 +1,7 @@
 "use client";
 
 import useSWR from "swr";
-import { useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { getDashboardStats, getRequests, getAgents, getUsage, UsageData } from "@/lib/api";
 import { MetricCard } from "@/components/metric-card";
@@ -164,6 +164,26 @@ export default function OverviewPage() {
     refreshInterval: 15000,
   });
 
+  const [hasRetried, setHasRetried] = useState(false);
+  const retryScheduled = useRef(false);
+
+  useEffect(() => {
+    if (!statsError) {
+      retryScheduled.current = false;
+      setHasRetried(false);
+      return;
+    }
+    if (!retryScheduled.current) {
+      retryScheduled.current = true;
+      const timer = setTimeout(() => {
+        setHasRetried(true);
+        mutateStats();
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statsError]);
+
   const {
     data: pendingRequests,
     isLoading: pendingLoading,
@@ -209,7 +229,7 @@ export default function OverviewPage() {
         </p>
       </div>
 
-      {statsError && (
+      {statsError && hasRetried && (
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive flex items-center justify-between">
           <span>Failed to load stats</span>
           <Button variant="outline" size="sm" onClick={() => mutateStats()}>
