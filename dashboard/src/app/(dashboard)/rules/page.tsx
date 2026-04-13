@@ -50,27 +50,58 @@ const RULE_TYPES = [
 const FALLBACK_TEMPLATES: RuleTemplate[] = [
   {
     name: "Conservative",
-    description: "Maximum protection — nothing auto-approves. Every request requires your review.",
+    description: "Tight controls: requires approval for anything over $25, hard daily/monthly caps.",
     rules: [
-      { rule_type: "require_approval_above", value: { amount: 0 } },
-      { rule_type: "max_per_day", value: { amount: 50 } },
+      { rule_type: "require_approval_above", value: { amount: 25 } },
+      { rule_type: "max_per_day", value: { amount: 100 } },
+      { rule_type: "max_per_month", value: { amount: 500 } },
     ],
   },
   {
     name: "Moderate",
-    description: "Approve small purchases automatically, flag large ones for review.",
+    description: "Balanced: auto-approves small purchases, flags large ones, reasonable spend caps.",
     rules: [
-      { rule_type: "auto_approve_below", value: { amount: 25 } },
-      { rule_type: "require_approval_above", value: { amount: 100 } },
-      { rule_type: "max_per_day", value: { amount: 200 } },
+      { rule_type: "auto_approve_below", value: { amount: 50 } },
+      { rule_type: "require_approval_above", value: { amount: 200 } },
+      { rule_type: "max_per_day", value: { amount: 500 } },
+      { rule_type: "max_per_month", value: { amount: 2000 } },
     ],
   },
   {
     name: "Permissive",
-    description: "Higher auto-approve threshold with a daily spending cap.",
+    description: "Minimal friction: auto-approves most purchases, only blocks truly large spends.",
+    rules: [
+      { rule_type: "auto_approve_below", value: { amount: 500 } },
+      { rule_type: "max_per_day", value: { amount: 2000 } },
+      { rule_type: "max_per_month", value: { amount: 10000 } },
+    ],
+  },
+  {
+    name: "Online Shopping",
+    description: "E-commerce focused: auto-approves small purchases, flags mid-range, blocks large transactions with a daily cap.",
+    rules: [
+      { rule_type: "auto_approve_below", value: { amount: 50 } },
+      { rule_type: "require_approval_above", value: { amount: 50 } },
+      { rule_type: "max_per_transaction", value: { amount: 500 } },
+      { rule_type: "max_per_day", value: { amount: 300 } },
+    ],
+  },
+  {
+    name: "Procurement",
+    description: "Business purchasing: auto-approves small orders from any vendor, flags larger purchases, with a daily spend cap.",
     rules: [
       { rule_type: "auto_approve_below", value: { amount: 100 } },
-      { rule_type: "max_per_day", value: { amount: 500 } },
+      { rule_type: "require_approval_above", value: { amount: 100 } },
+      { rule_type: "max_per_day", value: { amount: 1000 } },
+    ],
+  },
+  {
+    name: "Ad Spending",
+    description: "Advertising budget control: auto-approves small ad buys, flags anything larger, with a tight daily cap.",
+    rules: [
+      { rule_type: "auto_approve_below", value: { amount: 25 } },
+      { rule_type: "require_approval_above", value: { amount: 25 } },
+      { rule_type: "max_per_day", value: { amount: 200 } },
     ],
   },
 ];
