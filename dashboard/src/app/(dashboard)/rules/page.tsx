@@ -8,6 +8,7 @@ import {
   createRule,
   deleteRule,
   getGlobalRuleTemplates,
+  restoreAgentRules,
   RuleTemplate,
 } from "@/lib/api";
 import { RuleRow } from "@/components/rule-row";
@@ -51,6 +52,7 @@ const FALLBACK_TEMPLATES: RuleTemplate[] = [
   {
     name: "Conservative",
     description: "Tight controls: requires approval for anything over $25, hard daily/monthly caps.",
+    risk_level: "low",
     rules: [
       { rule_type: "require_approval_above", value: { amount: 25 } },
       { rule_type: "max_per_day", value: { amount: 100 } },
@@ -60,6 +62,7 @@ const FALLBACK_TEMPLATES: RuleTemplate[] = [
   {
     name: "Moderate",
     description: "Balanced: auto-approves small purchases, flags large ones, reasonable spend caps.",
+    risk_level: "medium",
     rules: [
       { rule_type: "auto_approve_below", value: { amount: 50 } },
       { rule_type: "require_approval_above", value: { amount: 200 } },
@@ -70,6 +73,7 @@ const FALLBACK_TEMPLATES: RuleTemplate[] = [
   {
     name: "Permissive",
     description: "Minimal friction: auto-approves most purchases, only blocks truly large spends.",
+    risk_level: "high",
     rules: [
       { rule_type: "auto_approve_below", value: { amount: 500 } },
       { rule_type: "max_per_day", value: { amount: 2000 } },
@@ -79,6 +83,7 @@ const FALLBACK_TEMPLATES: RuleTemplate[] = [
   {
     name: "Online Shopping",
     description: "E-commerce focused: auto-approves small purchases, flags mid-range, blocks large transactions with a daily cap.",
+    risk_level: "medium",
     rules: [
       { rule_type: "auto_approve_below", value: { amount: 50 } },
       { rule_type: "require_approval_above", value: { amount: 50 } },
@@ -89,6 +94,7 @@ const FALLBACK_TEMPLATES: RuleTemplate[] = [
   {
     name: "Procurement",
     description: "Business purchasing: auto-approves small orders from any vendor, flags larger purchases, with a daily spend cap.",
+    risk_level: "medium",
     rules: [
       { rule_type: "auto_approve_below", value: { amount: 100 } },
       { rule_type: "require_approval_above", value: { amount: 100 } },
@@ -98,6 +104,7 @@ const FALLBACK_TEMPLATES: RuleTemplate[] = [
   {
     name: "Ad Spending",
     description: "Advertising budget control: auto-approves small ad buys, flags anything larger, with a tight daily cap.",
+    risk_level: "medium",
     rules: [
       { rule_type: "auto_approve_below", value: { amount: 25 } },
       { rule_type: "require_approval_above", value: { amount: 25 } },
@@ -162,6 +169,23 @@ function getTemplateStyle(name: string) {
   if (key.includes("procurement")) return TEMPLATE_STYLES.procurement;
   if (key.includes("ad")) return TEMPLATE_STYLES.adspending;
   return TEMPLATE_STYLES.moderate;
+}
+
+function getRiskLevelBadge(riskLevel?: string): { text: string; className: string } | null {
+  if (!riskLevel) return null;
+  const level = riskLevel.toLowerCase();
+  if (level === "low") return {
+    text: "Low risk",
+    className: "bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300",
+  };
+  if (level === "high") return {
+    text: "High risk",
+    className: "bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300",
+  };
+  return {
+    text: "Medium risk",
+    className: "bg-yellow-100 dark:bg-yellow-900/50 text-yellow-700 dark:text-yellow-300",
+  };
 }
 
 function ruleTypeSummary(ruleType: string, value: Record<string, unknown>): string {
@@ -302,6 +326,7 @@ export default function RulesPage() {
   async function handleConfirmApplyTemplate() {
     if (!confirmTemplate || !selectedAgentId) return;
     const template = confirmTemplate;
+    const agentId = selectedAgentId;
     setConfirmTemplate(null);
     setApplyingTemplate(template.name);
 
@@ -314,10 +339,23 @@ export default function RulesPage() {
 
       // Step 2: create template rules
       for (const rule of template.rules) {
-        await createRule(selectedAgentId, rule.rule_type, rule.value);
+        await createRule(agentId, rule.rule_type, rule.value);
       }
 
-      toast.success(templateToastMessage(template));
+      toast("Template applied.", {
+        action: {
+          label: "Undo",
+          onClick: async () => {
+            try {
+              await restoreAgentRules(agentId);
+              mutateRules();
+              toast.success("Rules restored.");
+            } catch {
+              toast.error("Failed to restore previous rules.");
+            }
+          },
+        },
+      });
     } catch (err) {
       toast.error(
         err instanceof Error ? err.message : "Failed to apply template"
@@ -354,6 +392,9 @@ export default function RulesPage() {
           {templates.map((tmpl) => {
             const style = getTemplateStyle(tmpl.name);
             const isApplying = applyingTemplate === tmpl.name;
+            const riskBadge = getRiskLevelBadge(tmpl.risk_level);
+            const isConservative = tmpl.name.toLowerCase().includes("conservative");
+            const dailyCap = tmpl.rules.find((r) => r.rule_type === "max_per_day");
             return (
               <div
                 key={tmpl.name}
@@ -364,15 +405,27 @@ export default function RulesPage() {
                 )}
               >
                 <div className="flex items-start justify-between gap-2">
-                  <span
-                    className={cn(
-                      "text-xs font-semibold px-2 py-0.5 rounded-full",
-                      style.badge
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span
+                      className={cn(
+                        "text-xs font-semibold px-2 py-0.5 rounded-full",
+                        style.badge
+                      )}
+                    >
+                      {style.badgeText}
+                    </span>
+                    {riskBadge && (
+                      <span
+                        className={cn(
+                          "text-xs font-semibold px-2 py-0.5 rounded-full",
+                          riskBadge.className
+                        )}
+                      >
+                        {riskBadge.text}
+                      </span>
                     )}
-                  >
-                    {style.badgeText}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
+                  </div>
+                  <span className="text-xs text-muted-foreground flex-shrink-0">
                     {tmpl.rules.length} rules
                   </span>
                 </div>
@@ -388,6 +441,11 @@ export default function RulesPage() {
                   {tmpl.rules.map((r, i) => (
                     <li key={i} className="text-xs text-muted-foreground font-mono">
                       • {ruleTypeSummary(r.rule_type, r.value)}
+                      {isConservative && r.rule_type === "max_per_day" && (
+                        <p className="font-sans not-italic mt-0.5 pl-2 text-muted-foreground/70">
+                          Daily spending across all purchases is capped at ${dailyCap?.value?.amount as number}. Once reached, all further requests are denied for the day.
+                        </p>
+                      )}
                     </li>
                   ))}
                 </ul>
@@ -564,15 +622,23 @@ export default function RulesPage() {
             <DialogDescription>
               This will{" "}
               <span className="font-medium text-foreground">
-                replace all existing rules
+                permanently replace all current rules
               </span>{" "}
               for{" "}
               <span className="font-medium text-foreground">
                 {selectedAgent?.name}
-              </span>{" "}
-              with the {confirmTemplate?.name} preset.
+              </span>
+              . Your existing rules will be backed up and can be restored.
             </DialogDescription>
           </DialogHeader>
+          {confirmTemplate?.name.toLowerCase().includes("permissive") && (
+            <div className="flex items-start gap-2 rounded-lg bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 px-3 py-2.5 text-sm text-orange-700 dark:text-orange-400">
+              <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+              <span>
+                This template auto-approves purchases up to $100 without your review. Your agents could spend up to $500/day without asking.
+              </span>
+            </div>
+          )}
           {confirmTemplate && (
             <div className="rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm space-y-1">
               {confirmTemplate.rules.map((r, i) => (

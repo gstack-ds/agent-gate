@@ -105,6 +105,7 @@ export interface ActivityItem {
 export interface RuleTemplate {
   name: string;
   description: string;
+  risk_level?: string;
   rules: Array<{
     rule_type: string;
     value: Record<string, unknown>;
@@ -167,6 +168,10 @@ export async function getRuleTemplates(
 
 export async function getGlobalRuleTemplates(): Promise<RuleTemplate[]> {
   return apiFetch<RuleTemplate[]>("/v1/rules/templates");
+}
+
+export async function restoreAgentRules(agentId: string): Promise<void> {
+  return apiFetch<void>(`/v1/agents/${agentId}/rules/restore`, { method: "POST" });
 }
 
 // --- Requests ---
