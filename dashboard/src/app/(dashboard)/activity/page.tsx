@@ -1,18 +1,23 @@
 "use client";
 
+import { useState } from "react";
 import useSWR from "swr";
-import { getActivity } from "@/lib/api";
+import { Download } from "lucide-react";
+import { getActivity, getAgents } from "@/lib/api";
 import { ActivityFeed } from "@/components/activity-feed";
+import { ExportModal } from "@/components/export-modal";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function ActivityPage() {
+  const [exportOpen, setExportOpen] = useState(false);
   const {
     data: items,
     isLoading,
     error,
     mutate,
   } = useSWR("activity", getActivity, { refreshInterval: 15000 });
+  const { data: agents } = useSWR("agents", getAgents, { refreshInterval: 30000 });
 
   return (
     <div className="space-y-6 page-enter">
@@ -25,10 +30,18 @@ export default function ActivityPage() {
             Recent events across all your agents
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => mutate()}>
-          Refresh
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setExportOpen(true)}>
+            <Download className="mr-1.5 h-3.5 w-3.5" />
+            Export
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => mutate()}>
+            Refresh
+          </Button>
+        </div>
       </div>
+
+      <ExportModal open={exportOpen} onOpenChange={setExportOpen} agents={agents ?? []} />
 
       {error && (
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive flex items-center justify-between">

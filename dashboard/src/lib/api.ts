@@ -219,6 +219,44 @@ export async function getUsage(): Promise<UsageData> {
   return apiFetch<UsageData>("/v1/usage");
 }
 
+// --- Activity export ---
+
+export interface ExportParams {
+  format: "csv" | "json";
+  start_date?: string;
+  end_date?: string;
+  agent_id?: string;
+  status?: string;
+  category?: string;
+}
+
+export async function exportActivity(
+  params: ExportParams
+): Promise<{ blob: Blob; filename: string }> {
+  const token = await getToken();
+  const qs = new URLSearchParams({ format: params.format });
+  if (params.start_date) qs.set("start_date", params.start_date);
+  if (params.end_date) qs.set("end_date", params.end_date);
+  if (params.agent_id) qs.set("agent_id", params.agent_id);
+  if (params.status) qs.set("status", params.status);
+  if (params.category) qs.set("category", params.category);
+
+  const res = await fetch(`${API_URL}/v1/activity/export?${qs}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+
+  if (!res.ok) {
+    const msg = await res.text();
+    throw new Error(msg || `Export failed (${res.status})`);
+  }
+
+  const blob = await res.blob();
+  const disposition = res.headers.get("Content-Disposition") ?? "";
+  const match = disposition.match(/filename="([^"]+)"/);
+  const filename = match?.[1] ?? `spendnod_activity.${params.format}`;
+  return { blob, filename };
+}
+
 // --- Billing ---
 
 export async function createCheckoutSession(
