@@ -34,5 +34,8 @@ htmlcov/
 Thumbs.db
 agentgate api keys.txt
 
+# MCP registry
+.mcpregistry_*
+
 # Claude Code
 .claude/
