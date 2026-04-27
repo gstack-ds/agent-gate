@@ -13,7 +13,6 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-  DialogClose,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -244,11 +243,9 @@ export function ExportModal({ open, onOpenChange, agents }: ExportModalProps) {
         </div>
 
         <DialogFooter className="gap-2">
-          <DialogClose asChild>
-            <Button variant="outline" size="sm" disabled={loading}>
-              Cancel
-            </Button>
-          </DialogClose>
+          <Button variant="outline" size="sm" disabled={loading} onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
           <Button size="sm" onClick={handleDownload} disabled={loading}>
             {loading ? (
               <>
