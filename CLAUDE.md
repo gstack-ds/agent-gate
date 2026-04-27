@@ -35,6 +35,10 @@ Authorization gateway for AI agents and financial transactions.
 - [x] migration 006_rule_backups.sql deployed — rule_backups table live in Supabase; restore endpoint deployed to Railway
 - [x] Overview page: auto-retry stats fetch once after 2s before showing error banner
 - [x] Rules page: empty state with "Create agent" CTA when user has no agents
+- [x] New SpendNod Handoff mark logo (two offset squares, blue→teal gradient) deployed across all HTML pages and dashboard (login, sidebar desktop + mobile)
+- [x] Full favicon set (svg, ico, png sizes, apple-touch-icon, webmanifest) on spendnod.com and app.spendnod.com
+- [x] Activity export: Export button on activity page → modal with CSV/JSON format, date presets (7d/30d/90d/all/custom), agent/status/category filters, browser download trigger
+- [x] Backend `GET /v1/activity/export` endpoint — user-scoped, rate limited 10/hr, 16 tests (146 total passing)
 
 ## Remaining TODOs
 
@@ -59,7 +63,7 @@ Authorization gateway for AI agents and financial transactions.
 - [ ] Publish SDK to PyPI
 - [ ] Webhook callbacks
 - [ ] SMS notifications via Twilio
-- [ ] Analytics export (CSV download)
+- [x] Analytics export (CSV download)
 - [ ] Slack/Teams integration
 - [ ] Push notifications
 - [ ] Supabase Realtime (replace polling)
