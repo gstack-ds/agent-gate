@@ -24,10 +24,7 @@ Authorization gateway for AI agents and financial transactions.
 - [x] Enterprise nav link added to consumer landing page; Business tier CTA links to /enterprise
 - [x] RLS enabled on all 8 Supabase tables with per-user policies (migration 004)
 - [x] Supabase Security Advisor: 0 errors
-- [x] Stripe billing integration complete (migration 005 adds stripe_customer_id)
-- [x] Stripe webhook at /webhooks/stripe — handles checkout.session.completed, customer.subscription.updated, customer.subscription.deleted
-- [x] POST /v1/billing/checkout and POST /v1/billing/portal endpoints live
-- [x] Dashboard upgrade button (free plan) and manage billing link (paid plans) in sidebar
+- [x] ~~Stripe billing integration~~ — Stripe fully removed from dashboard (2026-04-30); all upgrade/plan/billing UI stripped; dashboard is free/unlimited for all users
 - [x] All old agentgate/Railway URLs replaced with spendnod.com URLs across codebase
 - [x] Confirmation email HTML in Supabase
 - [x] 117 backend tests passing
@@ -39,11 +36,11 @@ Authorization gateway for AI agents and financial transactions.
 - [x] Full favicon set (svg, ico, png sizes, apple-touch-icon, webmanifest) on spendnod.com and app.spendnod.com
 - [x] Activity export: Export button on activity page → modal with CSV/JSON format, date presets (7d/30d/90d/all/custom), agent/status/category filters, browser download trigger
 - [x] Backend `GET /v1/activity/export` endpoint — user-scoped, rate limited 10/hr, 16 tests (146 total passing)
+- [x] Dashboard Stripe cleanup — removed `upgrade-modal.tsx`, billing API calls (`createCheckoutSession`, `createBillingPortal`, `getUsage`, `UsageData`), plan badges, upgrade banners, and billing portal link from sidebar
 
 ## Remaining TODOs
 
 ### Pre-Launch Blockers
-- [ ] Test full Stripe checkout flow end-to-end (free → upgrade → verify → cancel → verify downgrade)
 - [ ] Login page redesign to match dark theme of landing site
 - [ ] Rotate credentials that were briefly exposed: DB password, JWT_SECRET, RESEND_API_KEY
 - [ ] Reconnect Railway to gstack-ds/spendnod-backend for auto-deploys (currently manual redeploy required)
@@ -57,7 +54,7 @@ Authorization gateway for AI agents and financial transactions.
 
 ### QA / Verification
 - [ ] Test MCP with Claude Desktop, Cursor, VS Code, OpenClaw
-- [ ] Tier enforcement live test (bash script)
+- [ ] End-to-end signup test: new user → OAuth/email → dashboard loads cleanly with no billing errors
 
 ### Later (not launch blockers)
 - [ ] Publish SDK to PyPI

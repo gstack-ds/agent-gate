@@ -205,20 +205,6 @@ export async function getActivity(): Promise<ActivityItem[]> {
   return apiFetch<ActivityItem[]>("/v1/dashboard/activity");
 }
 
-// --- Usage ---
-
-export interface UsageData {
-  plan: string;
-  authorizations_this_month: number;
-  requests_limit: number | null;
-  agents_active: number;
-  agents_limit: number | null;
-}
-
-export async function getUsage(): Promise<UsageData> {
-  return apiFetch<UsageData>("/v1/usage");
-}
-
 // --- Activity export ---
 
 export interface ExportParams {
@@ -257,17 +243,3 @@ export async function exportActivity(
   return { blob, filename };
 }
 
-// --- Billing ---
-
-export async function createCheckoutSession(
-  plan: "starter" | "pro"
-): Promise<{ url: string }> {
-  return apiFetch<{ url: string }>("/v1/billing/checkout", {
-    method: "POST",
-    body: JSON.stringify({ plan }),
-  });
-}
-
-export async function createBillingPortal(): Promise<{ url: string }> {
-  return apiFetch<{ url: string }>("/v1/billing/portal", { method: "POST" });
-}

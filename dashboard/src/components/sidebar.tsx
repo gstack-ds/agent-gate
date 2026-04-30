@@ -17,15 +17,11 @@ import {
   X,
   Sun,
   Moon,
-  Zap,
-  CreditCard,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
 import useSWR from "swr";
-import { getDashboardStats, getUsage, createBillingPortal } from "@/lib/api";
-import { UpgradeModal } from "@/components/upgrade-modal";
-import { toast } from "sonner";
+import { getDashboardStats } from "@/lib/api";
 
 const navItems = [
   { href: "/", label: "Overview", icon: LayoutDashboard },
@@ -74,29 +70,10 @@ export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [upgradeOpen, setUpgradeOpen] = useState(false);
-  const [billingLoading, setBillingLoading] = useState(false);
-
   const { data: stats } = useSWR("dashboard-stats-sidebar", getDashboardStats, {
     refreshInterval: 15000,
   });
   const pendingCount = stats?.pending ?? 0;
-
-  const { data: usageData } = useSWR("usage", getUsage, { refreshInterval: 60000 });
-  const planLabel = usageData
-    ? `${usageData.plan.charAt(0).toUpperCase() + usageData.plan.slice(1)} plan`
-    : "Free plan";
-
-  async function handleManageBilling() {
-    setBillingLoading(true);
-    try {
-      const { url } = await createBillingPortal();
-      window.location.href = url;
-    } catch {
-      toast.error("Failed to open billing portal. Please try again.");
-      setBillingLoading(false);
-    }
-  }
 
   async function handleSignOut() {
     const supabase = createClient();
@@ -158,30 +135,6 @@ export function Sidebar() {
       {/* Footer */}
       <div className="px-3 py-3 border-t border-slate-800 space-y-1">
         <ThemeToggle />
-        <div className="px-3 py-2">
-          <span className="bg-slate-800 text-slate-400 text-xs px-3 py-1 rounded inline-block">
-            {planLabel}
-          </span>
-        </div>
-        {usageData?.plan === "free" && (
-          <button
-            className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-sm text-indigo-400 hover:text-indigo-300 hover:bg-slate-800 transition-colors duration-150"
-            onClick={() => setUpgradeOpen(true)}
-          >
-            <Zap className="h-4 w-4" />
-            Upgrade plan
-          </button>
-        )}
-        {usageData?.plan && usageData.plan !== "free" && (
-          <button
-            className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-slate-800 transition-colors duration-150 disabled:opacity-50"
-            onClick={handleManageBilling}
-            disabled={billingLoading}
-          >
-            <CreditCard className="h-4 w-4" />
-            {billingLoading ? "Opening…" : "Manage billing"}
-          </button>
-        )}
         <button
           className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-slate-800 transition-colors duration-150"
           onClick={handleSignOut}
@@ -234,7 +187,6 @@ export function Sidebar() {
         <NavContent />
       </aside>
 
-      <UpgradeModal open={upgradeOpen} onOpenChange={setUpgradeOpen} />
     </>
   );
 }
