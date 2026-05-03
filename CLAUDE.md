@@ -36,7 +36,8 @@ Authorization gateway for AI agents and financial transactions.
 - [x] Full favicon set (svg, ico, png sizes, apple-touch-icon, webmanifest) on spendnod.com and app.spendnod.com
 - [x] Activity export: Export button on activity page → modal with CSV/JSON format, date presets (7d/30d/90d/all/custom), agent/status/category filters, browser download trigger
 - [x] Backend `GET /v1/activity/export` endpoint — user-scoped, rate limited 10/hr, 16 tests (146 total passing)
-- [x] Dashboard Stripe cleanup — removed `upgrade-modal.tsx`, billing API calls (`createCheckoutSession`, `createBillingPortal`, `getUsage`, `UsageData`), plan badges, upgrade banners, and billing portal link from sidebar
+- [x] Dashboard Stripe cleanup — removed `upgrade-modal.tsx`, billing API calls (`createCheckoutSession`, `createBillingPortal`, `getUsage`, `UsageData`), plan badges, upgrade banners, and billing portal link from sidebar; deployed to Vercel 2026-05-03
+- [x] **Known:** 2 pre-existing dashboard test failures in `pending-card.test.tsx` — `escalation_reason` field mismatch; unrelated to billing cleanup, not regressions
 
 ## Remaining TODOs
 
